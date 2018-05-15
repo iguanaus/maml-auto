@@ -1,0 +1,5 @@
+ 
+These are the first results breaking baseline. 
+\n
+python main.py --datasource=sinusoid --logdir=logs/sine5/  --norm=None --update_batch_size=100 --limit_task True --regularize_penal 0.0 --meta_lr .0001 --update_lr .0001 --resume True --metatrain_iterations=70000 --train=False --test_set=True 
+
