@@ -81,7 +81,7 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
     SUMMARY_INTERVAL = 100
     SAVE_INTERVAL = 1000
     if FLAGS.datasource == 'sinusoid':
-        PRINT_INTERVAL = 100
+        PRINT_INTERVAL = 10
         TEST_PRINT_INTERVAL = PRINT_INTERVAL*5
     else:
         PRINT_INTERVAL = 100
