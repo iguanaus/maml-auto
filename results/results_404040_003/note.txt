@@ -1,6 +1,0 @@
- 
-These are the results for the training of the autoencoder. 
-
-This is the first images. 
-
-
