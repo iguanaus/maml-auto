@@ -160,7 +160,7 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
         if graphProgress and (itr % GRAPH_INTERVAL) == 0:
             print_result = sess.run([model.auto_out_a,model.auto_out_b,model.outputbs[FLAGS.num_updates-1]],feed_dict)
 
-            auto_output = print_result[2].reshape(25,100,39,39)
+            auto_output = print_result[2].reshape(FLAGS.meta_batch_size,100,39,39)
             correct_out = labb
             print(auto_output.shape)
             print(correct_out.shape)
@@ -181,7 +181,7 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
 
 
             #print(print_result)
-            auto_out_a = print_result[0].reshape(25,100,39,39)
+            auto_out_a = print_result[0].reshape(FLAGS.meta_batch_size,100,39,39)
             correct_out_a = ina1
             print("Difference....")
             #First ele
