@@ -54,7 +54,7 @@ flags.DEFINE_integer('num_updates', 1, 'number of inner gradient updates during 
 
 flags.DEFINE_float('regularize_penal', 1e-3, 'Regularization penalty')
 
-flags.DEFINE_bool('limit_task', False, 'if True, limit the # of tasks shown')
+flags.DEFINE_bool('limit_task', True, 'if True, limit the # of tasks shown')
 flags.DEFINE_integer('limit_task_num', 4, 'if True, limit the # of tasks shown')
 
 
@@ -113,20 +113,37 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
                     batch_x[i, :, 2] = phase[i]
 
             inputa = batch_x[:, :num_classes*FLAGS.update_batch_size, :]
+            ina1 = inputa[:,:,0,:,:]
+            ina2 = inputa[:,:,1,:,:]
+            ina3 = inputa[:,:,2,:,:]
             #print("Input a: " , inputa.shape)
             #print(inputa[0])
             #print("Label a: " , labela.shape)
             inputb = batch_x[:, num_classes*FLAGS.update_batch_size:, :] # b used for testing
+            inb1 = inputb[:,:,0,:,:]
+            inb2 = inputb[:,:,1,:,:]
+            inb3 = inputb[:,:,2,:,:]
             labela = batch_y[:, :num_classes*FLAGS.update_batch_size, :]
+            laba = labela[:,:,0,:,:]
+
             labelb = batch_y[:, num_classes*FLAGS.update_batch_size:, :]
-            #print("Ina Shape: " , inputa.shape)
-            #print("Inb Shape: " , inputb.shape)
+            labb = labelb[:,:,0,:,:]
+            #print("Ina1 Shape: " , ina1.shape)
+            #print("Ina2 Shape: " , ina2.shape)
+            #print("Ina3 Shape: " , ina3.shape)
+            #print("Inb1 Shape: " , inb1.shape)
+            #print("Inb2 Shape: " , inb2.shape)
+            #print("Inb3 Shape: " , inb3.shape)
+            #print("Laa Shape: " , laba.shape)
+            #print("Lab Shape: " , labb.shape)
+            #os.exit()
             #print("InputB: " , inputa)
             #print("LabelB: " , labela)
             #os.exit()
 
 
-            feed_dict = {model.inputa: inputa, model.inputb: inputb,  model.labela: labela, model.labelb: labelb}
+            #feed_dict = {model.inputa: inputa, model.inputb: inputb,  model.labela: labela, model.labelb: labelb}
+            feed_dict = {model.inputa1:ina1,model.inputa2:ina2,model.inputa3:ina3,model.inputb1:inb1,model.inputb2:inb2,model.inputb3:inb3,model.labela:laba,model.labelb:labb}
 
         if itr < FLAGS.pretrain_iterations:
             input_tensors = [model.pretrain_op]
@@ -187,14 +204,28 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
             else:
                 batch_x, batch_y, amp, phase = data_generator.generate(train=False)
                 inputa = batch_x[:, :num_classes*FLAGS.update_batch_size, :]
-                inputb = batch_x[:, num_classes*FLAGS.update_batch_size:, :]
+                ina1 = inputa[:,:,0,:,:]
+                ina2 = inputa[:,:,1,:,:]
+                ina3 = inputa[:,:,2,:,:]
+                #print("Input a: " , inputa.shape)
+                #print(inputa[0])
+                #print("Label a: " , labela.shape)
+                inputb = batch_x[:, num_classes*FLAGS.update_batch_size:, :] # b used for testing
+                inb1 = inputb[:,:,0,:,:]
+                inb2 = inputb[:,:,1,:,:]
+                inb3 = inputb[:,:,2,:,:]
                 labela = batch_y[:, :num_classes*FLAGS.update_batch_size, :]
+                laba = labela[:,:,0,:,:]
+
                 labelb = batch_y[:, num_classes*FLAGS.update_batch_size:, :]
+                labb = labelb[:,:,0,:,:]
+
                 #print("inputa: " , inputa[0])
                 #print("Ina Shape: " , inputa.shape)
                 #print("Inb Shape: " , inputb.shape)
                 #my = input("hi")
-                feed_dict = {model.inputa: inputa, model.inputb: inputb,  model.labela: labela, model.labelb: labelb, model.meta_lr: 0.0}
+                feed_dict = {model.inputa1:ina1,model.inputa2:ina2,model.inputa3:ina3,model.inputb1:inb1,model.inputb2:inb2,model.inputb3:inb3,model.labela:laba,model.labelb:labb,model.meta_lr: 0.0}
+                #feed_dict = {model.inputa: inputa, model.inputb: inputb,  model.labela: labela, model.labelb: labelb, model.meta_lr: 0.0}
                 if model.classification:
                     input_tensors = [model.total_accuracy1, model.total_accuracies2[FLAGS.num_updates-1]]
                 else:

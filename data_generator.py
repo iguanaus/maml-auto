@@ -22,13 +22,12 @@ FLAGS = flags.FLAGS
 #dataset_PATH = "data/"
 #filename = dataset_PATH + task_id + "_{0}-shot_2.p".format(num_shots)
 #tasks = pickle.load(open(filename, "rb"))
-
-filename = "data/bounce-states_100-shot_2.p"
+filename = "data/bounce-images_100-shot-2.p"
+#filename = "data/bounce-states_100-shot_2.p"
 #filename = "data/C-sin_10-shot_legit_stateform.p"
 #batch_size = 25
 
 tasks = pickle.load(open(filename, "rb"))
-
 def convertData(batch_size,myTrain,shouldPlot=False):
     num_batches = len(myTrain)/batch_size
     allTrainData = []
@@ -40,7 +39,6 @@ def convertData(batch_size,myTrain,shouldPlot=False):
             data = task[0]
             info = task[1]
             boxCords = info['z'].reshape(-1,2)*.025
-
             xCords = list(boxCords[:,0])
             yCords = list(boxCords[:,1])
             #Add last element to it.
@@ -48,25 +46,13 @@ def convertData(batch_size,myTrain,shouldPlot=False):
             yCords.append(yCords[0])
             if shouldPlot:
                 plt.plot(xCords,yCords)
-            #plt.show()
-
             inputa = data[0][0].reshape(-1,6) # This is doing exactly what we want
             onlyNextLabela = data[0][1][:,0:1,:].reshape(-1,2)
             inputb = data[1][0].reshape(-1,6)
-            #print("in b:" , inputb)
             onlyNextLabelb = data[1][1][:,0:1,:].reshape(-1,2) #This was pulling from the same set. 
-            #print("Next b: " , onlyNextLabelb)
             inputs = np.vstack((inputa,inputb))
             inputs = inputs.reshape(1,-1,6)
-            #print(inputs)
-
             labels = np.vstack((onlyNextLabela,onlyNextLabelb)).reshape(1,-1,2)
-            #print("Inputs:" , inputs)
-            #print("Labels:" , labels)
-            #print("X's: " , inputs[0][0])
-            #print("Ans: " , labels[0][0])
-
-            #Graph all the points now
             if shouldPlot:
                 for j in xrange(0, 200):
                     taskX = inputs[0][j][0:5:2] 
@@ -83,25 +69,163 @@ def convertData(batch_size,myTrain,shouldPlot=False):
             else:
                 inputAll = np.vstack((inputAll,inputs))
                 labelAll = np.vstack((labelAll,labels))
-                #print("IN All: " , inputAll)
-
-            #inputb = inputAll[:,FLAGS.update_batch_size:]
-            #labelb = labelAll[:,FLAGS.update_batch_size:]
-            #print("InputB: " , inputb)
-            #print("LabelB: " , labelb)
-            #os.exit()
             if shouldPlot:
                 plt.show()
+            break
         allTrainData.append([inputAll,labelAll,0,0])
-    #print("Sample batch:")
     b_x,b_y,amp,phase = allTrainData[1]
     inputb = b_x[:,:FLAGS.update_batch_size]
     labelb = b_y[:,:FLAGS.update_batch_size]
-    #print("InputB: " , inputb)
-    #print("LabelB: " , labelb)
-    #os.exit()
 
-    #print("Train data: " , allTrainData)
+    return allTrainData
+
+def convertDataImage(batch_size,myTrain,shouldPlot=False):
+    num_batches = len(myTrain)/batch_size
+    allTrainData = []
+    for i in xrange(0,num_batches):
+        tasks_for_batch = myTrain[i*batch_size:(i+1)*batch_size]
+        inputAll = np.array([])
+        labelAll = np.array([])
+        for task in tasks_for_batch:
+            data = task[0]
+            info = task[1]
+            boxCords = info['z'].reshape(-1,2)*.025
+            xCords = list(boxCords[:,0])
+            yCords = list(boxCords[:,1])
+            #Add last element to it.
+            xCords.append(xCords[0])
+            yCords.append(yCords[0])
+            if shouldPlot:
+                plt.plot(xCords,yCords)
+            inputa = data[0][0].reshape(-1,3,2,1)
+            inputa_fin = np.tile(inputa,(1,1,21,42))
+            #inputa = data[0][0].reshape(-1,6) # This is doing exactly what we want
+            onlyNextLabela = data[0][1][:,0:1,:].reshape(-1,1,2,1)
+            onlyNextLabela_fin = np.tile(onlyNextLabela,(1,1,21,42))
+
+            inputb = data[1][0].reshape(-1,3,2,1)
+            inputb_fin = np.tile(inputb,(1,1,21,42))
+            #inputa = data[0][0].reshape(-1,6) # This is doing exactly what we want
+            onlyNextLabelb = data[1][1][:,0:1,:].reshape(-1,1,2,1)
+            onlyNextLabelb_fin = np.tile(onlyNextLabelb,(1,1,21,42))
+
+            #.reshape(-1,2)
+
+            #inputb = data[1][0].reshape(-1,6)
+            #onlyNextLabelb = data[1][1][:,0:1,:].reshape(-1,2) #This was pulling from the same set. 
+            inputs = np.vstack((inputa_fin,inputb_fin))
+            #print(inputs.shape)
+            inputs = inputs.reshape(1,-1,3,42,42)
+            #print("Final inputs shape: " , inputs.shape)
+
+            #inputs = inputs.reshape(1,-1,6)
+
+            labels = np.vstack((onlyNextLabela_fin,onlyNextLabelb_fin))
+            #print("labels shape: " , labels.shape)
+            labels = labels.reshape(1,-1,1,42,42)
+            #print("Inputs shape: ",inputs)
+            #print("Labels shape: " , labels)
+
+            if shouldPlot:
+                for j in xrange(0, 200):
+                    taskX = inputs[0][j][0:5:2] 
+                    taskY = inputs[0][j][1:6:2]
+                    outX = labels[0][j][0]
+                    outY = labels[0][j][1]
+                    pltX = taskX + outX
+                    #print(pltX)
+                    #print(outX)
+                    plt.plot(list(taskX) + list([outX]), list(taskY) + [outY], '-o')
+            if inputAll.size == 0:
+                inputAll = inputs
+                labelAll = labels
+            else:
+                inputAll = np.vstack((inputAll,inputs))
+                labelAll = np.vstack((labelAll,labels))
+            if shouldPlot:
+                plt.show()
+            #break
+        allTrainData.append([inputAll,labelAll,0,0])
+    b_x,b_y,amp,phase = allTrainData[1]
+    inputb = b_x[:,:FLAGS.update_batch_size]
+    labelb = b_y[:,:FLAGS.update_batch_size]
+
+    return allTrainData
+
+def convertDataImage_Real(batch_size,myTrain,shouldPlot=False):
+    num_batches = len(myTrain)/batch_size
+    print("Num batches: " , num_batches)
+    allTrainData = []
+    for i in xrange(0,num_batches):
+        tasks_for_batch = myTrain[i*batch_size:(i+1)*batch_size]
+        inputAll = np.array([])
+        labelAll = np.array([])
+        for task in tasks_for_batch:
+            data = task[0]
+            info = task[1]
+            boxCords = info['z'].reshape(-1,2)*.025
+            xCords = list(boxCords[:,0])
+            yCords = list(boxCords[:,1])
+            #Add last element to it.
+            xCords.append(xCords[0])
+            yCords.append(yCords[0])
+            if shouldPlot:
+                plt.plot(xCords,yCords)
+            inputa = data[0][0].reshape(-1,3,39,39)
+            #inputa = data[0][0].reshape(-1,3,2,1)
+            #inputa_fin = np.tile(inputa,(1,1,21,42))
+            #inputa = data[0][0].reshape(-1,6) # This is doing exactly what we want
+            onlyNextLabela = data[0][1][:,0:1,:].reshape(-1,1,39,39)
+            #onlyNextLabela_fin = np.tile(onlyNextLabela,(1,1,21,42))
+
+            inputb = data[1][0].reshape(-1,3,39,39)
+            #inputb_fin = np.tile(inputb,(1,1,21,42))
+            #inputa = data[0][0].reshape(-1,6) # This is doing exactly what we want
+            onlyNextLabelb = data[1][1][:,0:1,:].reshape(-1,1,39,39)
+            #onlyNextLabelb_fin = np.tile(onlyNextLabelb,(1,1,21,42))
+
+            #.reshape(-1,2)
+
+            #inputb = data[1][0].reshape(-1,6)
+            #onlyNextLabelb = data[1][1][:,0:1,:].reshape(-1,2) #This was pulling from the same set. 
+            inputs = np.vstack((inputa,inputb))
+            #print(inputs.shape)
+            inputs = inputs.reshape(1,-1,3,39,39)
+            #print("Final inputs shape: " , inputs.shape)
+
+            #inputs = inputs.reshape(1,-1,6)
+
+            labels = np.vstack((onlyNextLabela,onlyNextLabelb))
+            #print("labels shape: " , labels.shape)
+            labels = labels.reshape(1,-1,1,39,39)
+            #print("Inputs shape: ",inputs)
+            #print("Labels shape: " , labels)
+
+            if shouldPlot:
+                for j in xrange(0, 200):
+                    taskX = inputs[0][j][0:5:2] 
+                    taskY = inputs[0][j][1:6:2]
+                    outX = labels[0][j][0]
+                    outY = labels[0][j][1]
+                    pltX = taskX + outX
+                    #print(pltX)
+                    #print(outX)
+                    plt.plot(list(taskX) + list([outX]), list(taskY) + [outY], '-o')
+            if inputAll.size == 0:
+                inputAll = inputs
+                labelAll = labels
+            else:
+                inputAll = np.vstack((inputAll,inputs))
+                labelAll = np.vstack((labelAll,labels))
+            if shouldPlot:
+                plt.show()
+            #break
+        allTrainData.append([inputAll,labelAll,0,0])
+
+    #b_x,b_y,amp,phase = allTrainData[1]
+    #inputb = b_x[:,:FLAGS.update_batch_size]
+    #labelb = b_y[:,:FLAGS.update_batch_size]
+
     return allTrainData
 
 
@@ -196,8 +320,8 @@ class DataGenerator(object):
             self.batch_size = ordd
             print("setupData. Done setting up data....")
         else:
-            self.allTrainData = convertData(self.batch_size,tasks['tasks_train'])
-            self.allTestData = convertData(numTestBatches,tasks['tasks_test'])
+            self.allTrainData = convertDataImage_Real(self.batch_size,tasks['tasks_train'])
+            self.allTestData = convertDataImage_Real(numTestBatches,tasks['tasks_test'])
             #print("All train: " , self.allTrainData)
             #print("All tests: " , self.allTestData)
             print(len(self.allTrainData))
@@ -302,7 +426,7 @@ class DataGenerator(object):
         all_label_batches = tf.one_hot(all_label_batches, self.num_classes)
         return all_image_batches, all_label_batches
 
-    def generate_sinusoid_batch(self, train=True, input_idx=None,usePreValues=True,numTotal=None,numTestBatches=100):
+    def generate_sinusoid_batch(self, train=True, input_idx=None,usePreValues=True,numTotal=None,numTestBatches=1):
         if numTotal == None:
             numTotal = FLAGS.limit_task_num
 

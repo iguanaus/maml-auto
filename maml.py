@@ -25,14 +25,13 @@ class MAML:
         self.meta_lr = tf.placeholder_with_default(FLAGS.meta_lr, ())
         self.classification = False
         self.test_num_updates = test_num_updates
-        self.dim_auto = 33 #This should be able to be arbitrary
+        self.dim_auto = 4 #This should be able to be arbitrary
         if auto:
-            self.real_input = self.dim_input
-            self.real_output = self.dim_output
+            self.real_input = 39 # This is square root of the total (its a kernel)
+            #self.real_output = 40#self.dim_output
+            self.real_output = 39*39 # This should be the complete dimension out. 
             self.dim_input = self.dim_output = self.dim_auto
             #if auto: self.dim_input, self.dim_output = self.dim_auto, self.dim_auto #If auto, pass in/out the dimension of the latent (auto_
-
-
         if FLAGS.datasource == 'sinusoid':
             self.dim_hidden = [80, 80,80]
             self.loss_func = mse
@@ -60,13 +59,21 @@ class MAML:
     def construct_model(self, input_tensors=None, prefix='metatrain_'):
         # a: training data for inner gradient, b: test data for meta gradient
         if input_tensors is None:
-            self.inputa = tf.placeholder(tf.float32)
-            self.inputb = tf.placeholder(tf.float32)
+            self.inputa1 = tf.placeholder(tf.float32)#,shape=[None,100,2,2])
+            self.inputa2 = tf.placeholder(tf.float32)
+            self.inputa3 = tf.placeholder(tf.float32)
+            self.inputb1 = tf.placeholder(tf.float32)
+            self.inputb2 = tf.placeholder(tf.float32)
+            self.inputb3 = tf.placeholder(tf.float32)
             self.labela = tf.placeholder(tf.float32)
             self.labelb = tf.placeholder(tf.float32)
         else:
-            self.inputa = input_tensors['inputa']
-            self.inputb = input_tensors['inputb']
+            self.inputa1 = input_tensors['inputa1']
+            self.inputa2 = input_tensors['inputa2']
+            self.inputa3 = input_tensors['inputa3']
+            self.inputb1 = input_tensors['inputb1']
+            self.inputb2 = input_tensors['inputb2']
+            self.inputb3 = input_tensors['inputb3']
             self.labela = input_tensors['labela']
             self.labelb = input_tensors['labelb']
 
@@ -89,29 +96,35 @@ class MAML:
 
             def task_metalearn(inp, reuse=True):
                 """ Perform gradient descent for one task in the meta-batch. """
-                inputa, inputb, labela, labelb = inp
-                print("Input a: " , inputa)
+                inputa1,inputa2,inputa3, inputb1,inputb2,inputb3, labela, labelb = inp
+                print("Input a: " , inputa1)
                 task_outputbs, task_lossesb, auto_losses = [], [], []
                 auto_loss = None
 
                 if auto:
 
                     # This takes in the input and passes out the latent variables.
-                    temp_in_a = self.encoder(inputa,self.auto_weights)
+                    temp_in_a = self.encoder(inputa1,self.auto_weights)
                     #Then transform it back, and take the loss
                     temp_out_a = self.decoder(temp_in_a,self.auto_weights)
                     # Similar with b. 
-                    temp_in_b = self.encoder(inputb,self.auto_weights)
+                    temp_in_b = self.encoder(inputb1,self.auto_weights)
                     temp_out_b = self.decoder(temp_in_b,self.auto_weights)
+                    #print("temp out a: " , temp_out_a)
+                    l1 = self.loss_func(temp_out_a,inputa1)
+                    l2 = self.loss_func(temp_out_b,inputb1)
+                    auto_loss = l1 + l2
+
                     inputa = temp_in_a
                     inputb = temp_in_b
+                    
+                    #print("temp out a: " , temp_out_a.eval())
 
-                    auto_loss = self.loss_func(temp_out_a,labela) + self.loss_func(temp_out_b,labelb)
+                    
                     #auto_losses.append(self.loss_func(temp_out_a,inputa))
                     #auto_losses.append(self.loss_func(temp_out_b,inputb))
 
-                if self.classification:
-                    task_accuraciesb = []
+                print("Inputa: " , inputa)
 
                 task_outputa = self.forward(inputa, weights, reuse=reuse)  # only reuse on the first iter
 
@@ -122,7 +135,8 @@ class MAML:
                     #elf.loss_func(task_outputa, labela)
 
 
-
+                print("Task outputa: " , task_outputa)
+                print("Label a: " , labela)
                 task_lossa = self.loss_func(task_outputa, labela)
 
                 grads = tf.gradients(task_lossa, list(weights.values()))
@@ -178,10 +192,6 @@ class MAML:
 
                 return task_output
 
-            if FLAGS.norm is not 'None':
-                # to initialize the batch norm vars, might want to combine this, and not run idx 0 twice.
-                unused = task_metalearn((self.inputa[0], self.inputb[0], self.labela[0], self.labelb[0]), False)
-
             out_dtype = [tf.float32, [tf.float32]*num_updates, tf.float32, [tf.float32]*num_updates]
             if self.classification:
                 out_dtype.extend([tf.float32, [tf.float32]*num_updates])
@@ -203,7 +213,7 @@ class MAML:
             #task_loss_auto_b = self.loss_func(temp_out_b,self.labelb)
             #task_loss_auto = task_loss_auto_a + task_loss_auto_b
 
-            result = tf.map_fn(task_metalearn, elems=(self.inputa,self.inputb, self.labela, self.labelb), dtype=out_dtype, parallel_iterations=FLAGS.meta_batch_size)
+            result = tf.map_fn(task_metalearn, elems=(self.inputa1,self.inputa2,self.inputa3,self.inputb1,self.inputb2,self.inputb3, self.labela, self.labelb), dtype=out_dtype, parallel_iterations=FLAGS.meta_batch_size)
             #In case you want to fetch it. 
             if auto:
                 #auto_losses = [1,2,3,4]
@@ -252,7 +262,7 @@ class MAML:
                 self.gvs = gvs = optimizer.compute_gradients(lossPenal)
                 if FLAGS.datasource == 'miniimagenet':
                     gvs = [(tf.clip_by_value(grad, -10, 10), var) for grad, var in gvs]
-                self.metatrain_op = optimizer.apply_gradients(gvs)
+                self.metatrain_op = optimizer .apply_gradients(gvs)
         else:
             print("Meta batch: " , FLAGS.meta_batch_size)
             self.metaval_total_loss1 = total_loss1 = tf.reduce_sum(lossesa) / tf.to_float(FLAGS.meta_batch_size)
@@ -287,7 +297,7 @@ class MAML:
     # This constructs the autoencoder weights.
     def construct_auto_weights(self):
         weights = {}
-        weights['encoder_a'] = tf.Variable(tf.truncated_normal([self.real_input,self.dim_auto],stddev=0.01))
+        weights['encoder_a'] = tf.Variable(tf.truncated_normal([self.dim_auto*20*20,self.dim_auto],stddev=0.01))
         print("Encoder a: " , weights['encoder_a'].shape)
         weights['decoder_a'] = tf.Variable(tf.truncated_normal([self.dim_auto,self.real_output],stddev=0.01))
         return weights
@@ -296,16 +306,33 @@ class MAML:
 
     #Take the entire and responds with the small latent. 
     def encoder(self,inp,weights):
-        print("Weights: " , weights.keys())
+        #print("Weights: " , weights.keys())
         #weights['encoder_a'] = weights['w1']
-        layer_1 = normalize(tf.matmul(inp,weights['encoder_a']),activation=tf.nn.relu,reuse=False,scope='0')
-        print(weights['encoder_a'])
-        #tf.nn.sigmoid(tf.matmul(inp,weights['encoder_a']))
-        return layer_1
+        #print("Input: " , inp)
+        my_inp = tf.reshape(inp,[-1,self.real_input,self.real_input,1])
+        conv1 = tf.layers.conv2d(inputs=my_inp,filters=self.dim_auto,kernel_size=[3,3],padding="same",activation=tf.nn.relu,strides=[2,2])
+        print("Conv network: " , conv1)
+        #os.exit()
+        pool2_flat = tf.reshape(conv1, [-1, self.dim_auto*20*20])
+        print(pool2_flat)
+        layer_2 = normalize(tf.matmul(pool2_flat,weights['encoder_a']),activation=tf.nn.relu,reuse=False,scope='0')
+        print(layer_2)
+        #os.exit()
+
+        #print("Pool 2 fat: " , pool2_flat)
+        return layer_2
 
     #Takes in the small latent and replies with the entire. 
     def decoder(self,inp,weights):
-        layer_2 = normalize(tf.matmul(inp,weights['decoder_a']),activation=tf.nn.relu,reuse=False,scope='0')
+
+        inp = tf.reshape(inp,[-1,int(self.dim_auto**0.5),int(self.dim_auto**0.5),1])
+
+        conv2 = tf.layers.conv2d(inputs=inp,filters=self.dim_auto,kernel_size=[3,3],padding="same",activation=tf.nn.relu,strides=[2,2])
+
+        output = tf.reshape(conv2, [-1, self.dim_auto])
+
+        layer_2 = normalize(tf.matmul(output,weights['decoder_a']),activation=tf.nn.relu,reuse=False,scope='0')
+
         return layer_2
 
     def forward_fc(self, inp, weights, reuse=False):
