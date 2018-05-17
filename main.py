@@ -128,15 +128,7 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
 
             labelb = batch_y[:, num_classes*FLAGS.update_batch_size:, :]
             labb = labelb[:,:,0,:,:]
-
             print("Ina1 Shape: " , ina1.shape)
-            #print("Ina2 Shape: " , ina2.shape)
-            #print("Ina1 Val  : " , ina1)
-            #print("Out Val   : " , laba)
-            #print("Ina3 Shape: " , ina3.shape)
-            #print("Inb1 Shape: " , inb1.shape)
-            #print("Inb2 Shape: " , inb2.shape)
-            #print("Inb3 Shape: " , inb3.shape)
             print("Laa Shape: " , laba.shape)
             #print("Lab Shape: " , labb.shape)
             #os.exit()

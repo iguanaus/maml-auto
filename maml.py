@@ -150,7 +150,8 @@ class MAML:
                 lb_3 = self.loss_func(temp_out_b_3,inputb3)
 
                 #l2 = self.loss_func(temp_out_b,inputb1)
-                auto_loss = la_1 + la_2 + la_3 + lb_1 + lb_2 + lb_3
+                #auto_loss = la_1 + la_2 + la_3 + lb_1 + lb_2 + lb_3
+                auto_loss = lb_1+lb_2+lb_3
 
                 #inputa = temp_in_a
                 #inputb = temp_in_b
@@ -212,21 +213,6 @@ class MAML:
        
             out_dtype.extend([tf.float32,tf.float32,tf.float32])
 
-            # This takes in the input and passes out the latent variables.
-            #print("Self inputa: " , self.inputa)
-            #temp_in_a = self.encoder(self.inputa,self.auto_weights)
-            #Then transform it back, and take the loss
-            #temp_out_a = self.decoder(temp_in_a,self.auto_weights)
-            # Similar with b. 
-            #temp_in_b = self.encoder(self.inputb,self.auto_weights#)
-            #temp_out_b = self.decoder(temp_in_b,self.auto_weights)
-            #print("Temp input a: " , temp_in_a)
-
-            #Assume for right now that the output is the same. 
-            #task_loss_auto_a = self.loss_func(temp_out_a,self.labela)
-            #task_loss_auto_b = self.loss_func(temp_out_b,self.labelb)
-            #task_loss_auto = task_loss_auto_a + task_loss_auto_b
-
             result = tf.map_fn(task_metalearn, elems=(self.inputa1,self.inputa2,self.inputa3,self.inputb1,self.inputb2,self.inputb3, self.labela, self.labelb), dtype=out_dtype, parallel_iterations=FLAGS.meta_batch_size)
             #In case you want to fetch it. 
             if auto:
@@ -252,6 +238,8 @@ class MAML:
 
             self.total_loss1 = total_loss1 = tf.reduce_sum(lossesa) / tf.to_float(FLAGS.meta_batch_size)
             self.total_losses2 = total_losses2 = [tf.reduce_sum(lossesb[j]) / tf.to_float(FLAGS.meta_batch_size) for j in range(num_updates)]
+            #self.auto_losses = auto_losses
+
             # after the map_fn
             self.outputas, self.outputbs = outputas, outputbs
             self.auto_out_a, self.auto_out_b = auto_out_a, auto_out_b
@@ -272,8 +260,10 @@ class MAML:
                 print("Meta train....")
                 optimizer = tf.train.AdamOptimizer(self.meta_lr)
                 lossPenal = self.total_losses2[FLAGS.num_updates-1]
-                if regularize : lossPenal = lossPenal + regularization_penalty
-                if auto : lossPenal = lossPenal + auto_losses
+                if regularize:
+                    lossPenal = lossPenal + regularization_penalty
+                if auto:
+                    lossPenal = lossPenal + 0.3*auto_losses
                 self.gvs = gvs = optimizer.compute_gradients(lossPenal)
                 if FLAGS.datasource == 'miniimagenet':
                     gvs = [(tf.clip_by_value(grad, -10, 10), var) for grad, var in gvs]
