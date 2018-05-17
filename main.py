@@ -167,6 +167,7 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
 
             val_one = auto_output[0][0]
             val_two = correct_out[0][0]
+            plt.switch_backend('agg')
             fig=plt.figure(figsize=(1, 3))
             fig.add_subplot(1, 3, 1)
             plt.imshow(val_one)
@@ -186,6 +187,7 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
             #First ele
             val_one = auto_out_a[0][0]
             val_two = correct_out_a[0][0]
+            plt.switch_backend('agg')
             fig=plt.figure(figsize=(1, 3))
             fig.add_subplot(1, 3, 1)
             plt.imshow(val_one)
