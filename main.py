@@ -81,7 +81,7 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
     SUMMARY_INTERVAL = 100
     SAVE_INTERVAL = 1000
     if FLAGS.datasource == 'sinusoid':
-        PRINT_INTERVAL = 10
+        PRINT_INTERVAL = 2
         TEST_PRINT_INTERVAL = PRINT_INTERVAL*5
     else:
         PRINT_INTERVAL = 100
@@ -128,13 +128,16 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
 
             labelb = batch_y[:, num_classes*FLAGS.update_batch_size:, :]
             labb = labelb[:,:,0,:,:]
-            #print("Ina1 Shape: " , ina1.shape)
+
+            print("Ina1 Shape: " , ina1.shape)
             #print("Ina2 Shape: " , ina2.shape)
+            #print("Ina1 Val  : " , ina1)
+            #print("Out Val   : " , laba)
             #print("Ina3 Shape: " , ina3.shape)
             #print("Inb1 Shape: " , inb1.shape)
             #print("Inb2 Shape: " , inb2.shape)
             #print("Inb3 Shape: " , inb3.shape)
-            #print("Laa Shape: " , laba.shape)
+            print("Laa Shape: " , laba.shape)
             #print("Lab Shape: " , labb.shape)
             #os.exit()
             #print("InputB: " , inputa)
@@ -207,8 +210,8 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
                 ina1 = inputa[:,:,0,:,:]
                 ina2 = inputa[:,:,1,:,:]
                 ina3 = inputa[:,:,2,:,:]
-                #print("Input a: " , inputa.shape)
-                #print(inputa[0])
+                print("Input a: " , inputa.shape)
+                print(inputa[0])
                 #print("Label a: " , labela.shape)
                 inputb = batch_x[:, num_classes*FLAGS.update_batch_size:, :] # b used for testing
                 inb1 = inputb[:,:,0,:,:]
@@ -216,6 +219,7 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
                 inb3 = inputb[:,:,2,:,:]
                 labela = batch_y[:, :num_classes*FLAGS.update_batch_size, :]
                 laba = labela[:,:,0,:,:]
+
 
                 labelb = batch_y[:, num_classes*FLAGS.update_batch_size:, :]
                 labb = labelb[:,:,0,:,:]

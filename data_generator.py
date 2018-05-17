@@ -28,129 +28,6 @@ filename = "data/bounce-images_100-shot-2.p"
 #batch_size = 25
 
 tasks = pickle.load(open(filename, "rb"))
-def convertData(batch_size,myTrain,shouldPlot=False):
-    num_batches = len(myTrain)/batch_size
-    allTrainData = []
-    for i in xrange(0,num_batches):
-        tasks_for_batch = myTrain[i*batch_size:(i+1)*batch_size]
-        inputAll = np.array([])
-        labelAll = np.array([])
-        for task in tasks_for_batch:
-            data = task[0]
-            info = task[1]
-            boxCords = info['z'].reshape(-1,2)*.025
-            xCords = list(boxCords[:,0])
-            yCords = list(boxCords[:,1])
-            #Add last element to it.
-            xCords.append(xCords[0])
-            yCords.append(yCords[0])
-            if shouldPlot:
-                plt.plot(xCords,yCords)
-            inputa = data[0][0].reshape(-1,6) # This is doing exactly what we want
-            onlyNextLabela = data[0][1][:,0:1,:].reshape(-1,2)
-            inputb = data[1][0].reshape(-1,6)
-            onlyNextLabelb = data[1][1][:,0:1,:].reshape(-1,2) #This was pulling from the same set. 
-            inputs = np.vstack((inputa,inputb))
-            inputs = inputs.reshape(1,-1,6)
-            labels = np.vstack((onlyNextLabela,onlyNextLabelb)).reshape(1,-1,2)
-            if shouldPlot:
-                for j in xrange(0, 200):
-                    taskX = inputs[0][j][0:5:2] 
-                    taskY = inputs[0][j][1:6:2]
-                    outX = labels[0][j][0]
-                    outY = labels[0][j][1]
-                    pltX = taskX + outX
-                    print(pltX)
-                    print(outX)
-                    plt.plot(list(taskX) + list([outX]), list(taskY) + [outY], '-o')
-            if inputAll.size == 0:
-                inputAll = inputs
-                labelAll = labels
-            else:
-                inputAll = np.vstack((inputAll,inputs))
-                labelAll = np.vstack((labelAll,labels))
-            if shouldPlot:
-                plt.show()
-            break
-        allTrainData.append([inputAll,labelAll,0,0])
-    b_x,b_y,amp,phase = allTrainData[1]
-    inputb = b_x[:,:FLAGS.update_batch_size]
-    labelb = b_y[:,:FLAGS.update_batch_size]
-
-    return allTrainData
-
-def convertDataImage(batch_size,myTrain,shouldPlot=False):
-    num_batches = len(myTrain)/batch_size
-    allTrainData = []
-    for i in xrange(0,num_batches):
-        tasks_for_batch = myTrain[i*batch_size:(i+1)*batch_size]
-        inputAll = np.array([])
-        labelAll = np.array([])
-        for task in tasks_for_batch:
-            data = task[0]
-            info = task[1]
-            boxCords = info['z'].reshape(-1,2)*.025
-            xCords = list(boxCords[:,0])
-            yCords = list(boxCords[:,1])
-            #Add last element to it.
-            xCords.append(xCords[0])
-            yCords.append(yCords[0])
-            if shouldPlot:
-                plt.plot(xCords,yCords)
-            inputa = data[0][0].reshape(-1,3,2,1)
-            inputa_fin = np.tile(inputa,(1,1,21,42))
-            #inputa = data[0][0].reshape(-1,6) # This is doing exactly what we want
-            onlyNextLabela = data[0][1][:,0:1,:].reshape(-1,1,2,1)
-            onlyNextLabela_fin = np.tile(onlyNextLabela,(1,1,21,42))
-
-            inputb = data[1][0].reshape(-1,3,2,1)
-            inputb_fin = np.tile(inputb,(1,1,21,42))
-            #inputa = data[0][0].reshape(-1,6) # This is doing exactly what we want
-            onlyNextLabelb = data[1][1][:,0:1,:].reshape(-1,1,2,1)
-            onlyNextLabelb_fin = np.tile(onlyNextLabelb,(1,1,21,42))
-
-            #.reshape(-1,2)
-
-            #inputb = data[1][0].reshape(-1,6)
-            #onlyNextLabelb = data[1][1][:,0:1,:].reshape(-1,2) #This was pulling from the same set. 
-            inputs = np.vstack((inputa_fin,inputb_fin))
-            #print(inputs.shape)
-            inputs = inputs.reshape(1,-1,3,42,42)
-            #print("Final inputs shape: " , inputs.shape)
-
-            #inputs = inputs.reshape(1,-1,6)
-
-            labels = np.vstack((onlyNextLabela_fin,onlyNextLabelb_fin))
-            #print("labels shape: " , labels.shape)
-            labels = labels.reshape(1,-1,1,42,42)
-            #print("Inputs shape: ",inputs)
-            #print("Labels shape: " , labels)
-
-            if shouldPlot:
-                for j in xrange(0, 200):
-                    taskX = inputs[0][j][0:5:2] 
-                    taskY = inputs[0][j][1:6:2]
-                    outX = labels[0][j][0]
-                    outY = labels[0][j][1]
-                    pltX = taskX + outX
-                    #print(pltX)
-                    #print(outX)
-                    plt.plot(list(taskX) + list([outX]), list(taskY) + [outY], '-o')
-            if inputAll.size == 0:
-                inputAll = inputs
-                labelAll = labels
-            else:
-                inputAll = np.vstack((inputAll,inputs))
-                labelAll = np.vstack((labelAll,labels))
-            if shouldPlot:
-                plt.show()
-            #break
-        allTrainData.append([inputAll,labelAll,0,0])
-    b_x,b_y,amp,phase = allTrainData[1]
-    inputb = b_x[:,:FLAGS.update_batch_size]
-    labelb = b_y[:,:FLAGS.update_batch_size]
-
-    return allTrainData
 
 def convertDataImage_Real(batch_size,myTrain,shouldPlot=False):
     num_batches = len(myTrain)/batch_size
@@ -171,11 +48,13 @@ def convertDataImage_Real(batch_size,myTrain,shouldPlot=False):
             yCords.append(yCords[0])
             if shouldPlot:
                 plt.plot(xCords,yCords)
+            print("My data: " , data[0][0].shape)
             inputa = data[0][0].reshape(-1,3,39,39)
             #inputa = data[0][0].reshape(-1,3,2,1)
             #inputa_fin = np.tile(inputa,(1,1,21,42))
             #inputa = data[0][0].reshape(-1,6) # This is doing exactly what we want
             onlyNextLabela = data[0][1][:,0:1,:].reshape(-1,1,39,39)
+            print("New label a: " , onlyNextLabela.shape)
             #onlyNextLabela_fin = np.tile(onlyNextLabela,(1,1,21,42))
 
             inputb = data[1][0].reshape(-1,3,39,39)
@@ -338,12 +217,14 @@ class DataGenerator(object):
         #print("Rand id: " , ranId)
         if train:
             ranId = random.randint(0,len(self.allTrainData)-1)
+            ranId = 0
+            print("getting...:",ranId)
             return self.allTrainData[ranId]
         else:
             if numTestBatches > 1:
                 numTestBatches = len(self.allTestData)
             ranId = random.randint(0,numTestBatches-1)
-            #print("testing..: " , ranId)
+            print("testing..: " , ranId)
             return self.allTestData[ranId]
 
     def make_data_tensor(self, train=True):

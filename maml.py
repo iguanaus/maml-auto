@@ -25,7 +25,7 @@ class MAML:
         self.meta_lr = tf.placeholder_with_default(FLAGS.meta_lr, ())
         self.classification = False
         self.test_num_updates = test_num_updates
-        self.dim_auto = 4 #This should be able to be arbitrary
+        self.dim_auto = 2 #This should be able to be arbitrary
         if auto:
             self.real_input = 39 # This is square root of the total (its a kernel)
             #self.real_output = 40#self.dim_output
@@ -33,7 +33,7 @@ class MAML:
             self.dim_input = self.dim_output = self.dim_auto
             #if auto: self.dim_input, self.dim_output = self.dim_auto, self.dim_auto #If auto, pass in/out the dimension of the latent (auto_
         if FLAGS.datasource == 'sinusoid':
-            self.dim_hidden = [80, 80,80]
+            self.dim_hidden = [40, 40,40]
             self.loss_func = mse
             self.forward = self.forward_fc
             self.construct_weights = self.construct_fc_weights
@@ -114,6 +114,7 @@ class MAML:
                     l1 = self.loss_func(temp_out_a,inputa1)
                     l2 = self.loss_func(temp_out_b,inputb1)
                     auto_loss = l1 + l2
+                    auto_loss = 0
 
                     inputa = temp_in_a
                     inputb = temp_in_b
@@ -297,9 +298,9 @@ class MAML:
     # This constructs the autoencoder weights.
     def construct_auto_weights(self):
         weights = {}
-        weights['encoder_a'] = tf.Variable(tf.truncated_normal([self.dim_auto*20*20,self.dim_auto],stddev=0.01))
+        weights['encoder_a'] = tf.Variable(tf.truncated_normal([512,2],stddev=0.01))
         print("Encoder a: " , weights['encoder_a'].shape)
-        weights['decoder_a'] = tf.Variable(tf.truncated_normal([self.dim_auto,self.real_output],stddev=0.01))
+        weights['decoder_a'] = tf.Variable(tf.truncated_normal([2,512],stddev=0.01))
         return weights
 
 
@@ -309,13 +310,17 @@ class MAML:
         #print("Weights: " , weights.keys())
         #weights['encoder_a'] = weights['w1']
         #print("Input: " , inp)
-        my_inp = tf.reshape(inp,[-1,self.real_input,self.real_input,1])
-        conv1 = tf.layers.conv2d(inputs=my_inp,filters=self.dim_auto,kernel_size=[3,3],padding="same",activation=tf.nn.relu,strides=[2,2])
-        print("Conv network: " , conv1)
+        my_inp = tf.reshape(inp,[-1,39,39,1])
+        print("My input: " , my_inp)
+        conv1 = tf.layers.conv2d(inputs=my_inp,filters=32,kernel_size=[3,3],padding="valid",activation=tf.nn.relu,strides=[2,2])
+        print("Conv")
+        conv2 = tf.layers.conv2d(inputs=conv1,filters=32,kernel_size=[3,3],padding="valid",activation=tf.nn.relu,strides=[2,2])
+        conv3 = tf.layers.conv2d(inputs=conv2,filters=32,kernel_size=[3,3],padding="valid",activation=tf.nn.relu,strides=[2,2])
+        print("Conv network: " , conv3)
         #os.exit()
-        pool2_flat = tf.reshape(conv1, [-1, self.dim_auto*20*20])
-        print(pool2_flat)
-        layer_2 = normalize(tf.matmul(pool2_flat,weights['encoder_a']),activation=tf.nn.relu,reuse=False,scope='0')
+        pool2_flat = tf.reshape(conv3, [-1, 512])
+        
+        layer_2 = normalize(tf.matmul(pool2_flat,weights['encoder_a']),activation=None,reuse=False,scope='0')
         print(layer_2)
         #os.exit()
 
@@ -325,15 +330,25 @@ class MAML:
     #Takes in the small latent and replies with the entire. 
     def decoder(self,inp,weights):
 
-        inp = tf.reshape(inp,[-1,int(self.dim_auto**0.5),int(self.dim_auto**0.5),1])
+        print("Input: " , inp)
 
-        conv2 = tf.layers.conv2d(inputs=inp,filters=self.dim_auto,kernel_size=[3,3],padding="same",activation=tf.nn.relu,strides=[2,2])
+        layer_2 = normalize(tf.matmul(inp,weights['decoder_a']),activation=None,reuse=False,scope='0')
 
-        output = tf.reshape(conv2, [-1, self.dim_auto])
+        inp = tf.reshape(layer_2,[-1,4,4,32])
 
-        layer_2 = normalize(tf.matmul(output,weights['decoder_a']),activation=tf.nn.relu,reuse=False,scope='0')
+        conv1 = tf.layers.conv2d_transpose(inputs=inp,filters=32,kernel_size=[3,3],padding="valid",activation=tf.nn.relu,strides=[2,2])
+        print("Conv")
+        conv2 = tf.layers.conv2d_transpose(inputs=conv1,filters=32,kernel_size=[3,3],padding="valid",activation=tf.nn.relu,strides=[2,2])
 
-        return layer_2
+        conv3 = tf.layers.conv2d_transpose(inputs=conv2,filters=1,kernel_size=[3,3],padding="valid",activation=tf.nn.relu,strides=[2,2])
+
+        print("Output: " , conv3)
+
+        #output = tf.reshape(conv2, [-1, self.dim_auto])
+
+        #layer_2 = normalize(tf.matmul(output,weights['decoder_a']),activation=tf.nn.relu,reuse=False,scope='0')
+
+        return conv3
 
     def forward_fc(self, inp, weights, reuse=False):
         print("Weights:", weights.keys())
