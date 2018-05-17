@@ -55,7 +55,7 @@ flags.DEFINE_integer('update_batch_size', 5, 'number of examples used for inner 
 flags.DEFINE_float('update_lr', 1e-3, 'step size alpha for inner gradient update.') # 0.1 for omniglot
 flags.DEFINE_integer('num_updates', 1, 'number of inner gradient updates during training.')
 
-flags.DEFINE_float('encoderregularize_penal', 1e-7, 'Regularization penalty encoding') # For Encoding training
+flags.DEFINE_float('encoderregularize_penal', 1e-8, 'Regularization penalty encoding') # For Encoding training
 flags.DEFINE_float('predictregularize_penal', 1e-8, 'Regularization penalty prediction') # For Normal training
 
 flags.DEFINE_bool('limit_task', True, 'if True, limit the # of tasks shown')
@@ -86,7 +86,8 @@ random.seed(120293442)
 
 def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
     SUMMARY_INTERVAL = 2
-    SAVE_INTERVAL = 100
+    SAVE_INTERVAL = 20
+    GRAPH_INTERVAL = 100
     if FLAGS.datasource == 'sinusoid':
         PRINT_INTERVAL = 2
         TEST_PRINT_INTERVAL = PRINT_INTERVAL*5
@@ -156,7 +157,7 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
 
         result = sess.run(input_tensors, feed_dict)
 
-        if graphProgress and (itr % 10) == 0:
+        if graphProgress and (itr % GRAPH_INTERVAL) == 0:
             print_result = sess.run([model.auto_out_a,model.auto_out_b,model.outputbs[FLAGS.num_updates-1]],feed_dict)
 
             auto_output = print_result[2].reshape(25,100,39,39)
@@ -221,7 +222,7 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
                 print_str = 'Iteration          (meta    loss):' + str(itr - FLAGS.encoder_iterations - FLAGS.pretrain_iterations)
             print_str += ': ' + str(np.mean(prelosses)) + ', ' + str(np.mean(postlosses)) + " : auto : " + str(np.mean(auto_losses_list))
             print(print_str)
-            train_file.write(str(itr - FLAGS.pretrain_iterations) +"," + str(np.mean(prelosses)) + ', ' + str(np.mean(postlosses))+"\n")
+            train_file.write(str(itr - FLAGS.pretrain_iterations) +"," + str(np.mean(prelosses)) + ', ' + str(np.mean(postlosses))+"," + str(np.mean(auto_losses_list)) + "\n")
             prelosses, postlosses, auto_losses_list = [], [], []
 
         if (itr!=0) and itr % SAVE_INTERVAL == 0:
@@ -274,10 +275,12 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
             pre_loss = result[0]/100.0*FLAGS.meta_batch_size
             print("meta batch size: " , FLAGS.meta_batch_size)
             post_loss = result[1]/100.0*FLAGS.meta_batch_size
+            #auto_loss = result[2]/100.0*FLAGS.meta
+            auto_loss = result[2]/100.0*FLAGS.meta_batch_size
             print('Validation results: ' + str(pre_loss) + ', ' + str(post_loss))
-            print('Auto-Encoding loss: ' + str(result[2]/100.0*FLAGS.meta_batch_size))
+            print('Auto-Encoding loss: ' + str(auto_loss))
             
-            val_file.write(str(itr - FLAGS.pretrain_iterations) +"," + str(pre_loss) + ', ' + str(post_loss)+"\n")
+            val_file.write(str(itr - FLAGS.pretrain_iterations) +"," + str(pre_loss) + ', ' + str(post_loss)+", " + str(auto_loss) + "\n")
             train_file.flush()
             val_file.flush()
 

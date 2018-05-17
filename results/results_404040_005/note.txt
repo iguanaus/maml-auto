@@ -1,0 +1,4 @@
+ 
+These are results from tor for trying to train it (prior to the big push). This got down to comparable leves to Tailin's model, but unfortunately is not very easily reconstructed. I will leave it here in case. 
+
+
