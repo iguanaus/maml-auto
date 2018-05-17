@@ -52,14 +52,14 @@ flags.DEFINE_integer('update_batch_size', 5, 'number of examples used for inner 
 flags.DEFINE_float('update_lr', 1e-3, 'step size alpha for inner gradient update.') # 0.1 for omniglot
 flags.DEFINE_integer('num_updates', 1, 'number of inner gradient updates during training.')
 
-flags.DEFINE_float('regularize_penal', 1e-3, 'Regularization penalty')
+flags.DEFINE_float('regularize_penal', 1e-8, 'Regularization penalty')
 
 flags.DEFINE_bool('limit_task', True, 'if True, limit the # of tasks shown')
 flags.DEFINE_integer('limit_task_num', 4, 'if True, limit the # of tasks shown')
 
 
 ## Model options
-flags.DEFINE_string('norm', 'batch_norm', 'batch_norm, layer_norm, or None')
+flags.DEFINE_string('norm', 'None', 'batch_norm, layer_norm, or None')
 flags.DEFINE_integer('num_filters', 64, 'number of filters for conv nets -- 32 for miniimagenet, 64 for omiglot.')
 flags.DEFINE_bool('conv', True, 'whether or not to use a convolutional network, only applicable in some cases')
 flags.DEFINE_bool('max_pool', False, 'Whether or not to use max pooling rather than strided convolutions')
@@ -77,8 +77,11 @@ flags.DEFINE_float('train_update_lr', -1, 'value of inner gradient step step dur
 
 graphProgress = False
 
+np.random.seed(124202)
+random.seed(120293442)
+
 def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
-    SUMMARY_INTERVAL = 100
+    SUMMARY_INTERVAL = 2
     SAVE_INTERVAL = 1000
     if FLAGS.datasource == 'sinusoid':
         PRINT_INTERVAL = 2
@@ -105,12 +108,6 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
         feed_dict = {}
         if 'generate' in dir(data_generator):
             batch_x, batch_y, amp, phase = data_generator.generate()
-
-            if FLAGS.baseline == 'oracle':
-                batch_x = np.concatenate([batch_x, np.zeros([batch_x.shape[0], batch_x.shape[1], 2])], 2)
-                for i in range(FLAGS.meta_batch_size):
-                    batch_x[i, :, 1] = amp[i]
-                    batch_x[i, :, 2] = phase[i]
 
             inputa = batch_x[:, :num_classes*FLAGS.update_batch_size, :]
             ina1 = inputa[:,:,0,:,:]
@@ -154,29 +151,53 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
             input_tensors = [model.metatrain_op]
 
         if (itr % SUMMARY_INTERVAL == 0 or itr % PRINT_INTERVAL == 0):
-            input_tensors.extend([model.summ_op, model.total_loss1, model.total_losses2[FLAGS.num_updates-1]])
-            if model.classification:
-                input_tensors.extend([model.total_accuracy1, model.total_accuracies2[FLAGS.num_updates-1]])
+            input_tensors.extend([model.summ_op, model.total_loss1, model.total_losses2[FLAGS.num_updates-1],model.auto_losses])
+            
 
         result = sess.run(input_tensors, feed_dict)
 
-        if graphProgress:
-            print_result = sess.run(model.outputbs,feed_dict)
+        if graphProgress and (itr % 100) == 0:
+            print_result = sess.run([model.auto_out_a,model.auto_out_b],feed_dict)
+
             #print(print_result)
+            auto_out_a = print_result[-2].reshape(25,100,39,39)
+            correct_out_a = ina1
+            print("Difference....")
+            #First ele
+            val_one = auto_out_a[0][0]
+            val_two = correct_out_a[0][0]
+
+            fig=plt.figure(figsize=(1, 3))
+            fig.add_subplot(1, 3, 1)
+            plt.imshow(val_one)
+            fig.add_subplot(1, 3, 2)
+            plt.imshow(val_two)
+            fig.add_subplot(1, 3, 3)
+            plt.imshow(val_one-val_two)
+            plt.show()
+            print("Val one: " , val_one)
+            print("Val two: " , val_two)
+            #print(auto_out_a.shape)
+            #rint(correct_out_a.shape)
             #print(len(print_result))
             #print(print_result.shape)
-            predValuesB = print_result[-1] # Get the last gradient update. 
+            #predValuesB = print_result[-2] # Get the last gradient update. 
+            #auto_out_a = print_result[-1]
+            #real_out_a = ina1
+            #print(auto_out_a.shape)
+            #print(real_out_a.shape)
             #print("input values b: " , inputb)
             #print("True values b : " , labelb)
             #print("print reuslt  : " , predValuesB)
             #print(inputb.shape)
             #print(labelb.shape)
             #print(predValuesB.shape)
-            graphPoints(inputb[0],labelb[0],predValuesB[0])
+            #graphPoints(inputb[0],labelb[0],predValuesB[0])
 
 
         if itr % SUMMARY_INTERVAL == 0:
-            prelosses.append(result[-2])
+            print(result)
+            prelosses.append(result[-1])
             if FLAGS.log:
                 train_writer.add_summary(result[1], itr)
             postlosses.append(result[-1])
@@ -189,8 +210,6 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
             print_str += ': ' + str(np.mean(prelosses)) + ', ' + str(np.mean(postlosses))
             print(print_str)
             train_file.write(str(itr - FLAGS.pretrain_iterations) +"," + str(np.mean(prelosses)) + ', ' + str(np.mean(postlosses))+"\n")
-
-
             prelosses, postlosses = [], []
 
         if (itr!=0) and itr % SAVE_INTERVAL == 0:
@@ -258,9 +277,6 @@ NUM_TEST_POINTS = 20
 
 def test(model, saver, sess, exp_string, data_generator, test_num_updates=None):
     num_classes = data_generator.num_classes # for classification, 1 otherwise
-
-    np.random.seed(12420)
-    random.seed(12029344)
 
     metaval_accuracies = []
 

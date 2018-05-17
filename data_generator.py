@@ -217,7 +217,7 @@ class DataGenerator(object):
         #print("Rand id: " , ranId)
         if train:
             ranId = random.randint(0,len(self.allTrainData)-1)
-            ranId = 0
+            #ranId = 0
             print("getting...:",ranId)
             return self.allTrainData[ranId]
         else:
