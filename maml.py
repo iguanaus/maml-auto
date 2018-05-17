@@ -236,7 +236,7 @@ class MAML:
             #loss = self.auto_losses + total_loss1
             loss = self.auto_losses
 
-            if regularize : loss = loss + regularization_penalty
+            #if regularize : loss = loss + regularization_penalty
 
 
             #if auto : loss = loss + auto_losses
@@ -246,6 +246,7 @@ class MAML:
             self.pretrain_op = tf.train.AdamOptimizer(self.meta_lr).minimize(loss)
 
             if FLAGS.metatrain_iterations > 0:
+                print("Meta train....")
                 optimizer = tf.train.AdamOptimizer(self.meta_lr)
                 lossPenal = self.total_losses2[FLAGS.num_updates-1]
                 if regularize : lossPenal = lossPenal + regularization_penalty

@@ -219,10 +219,8 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
         if (itr!=0) and itr % TEST_PRINT_INTERVAL == 0:
             if 'generate' not in dir(data_generator):
                 feed_dict = {}
-                if model.classification:
-                    input_tensors = [model.metaval_total_accuracy1, model.metaval_total_accuracies2[FLAGS.num_updates-1], model.summ_op]
-                else:
-                    input_tensors = [model.metaval_total_loss1, model.metaval_total_losses2[FLAGS.num_updates-1], model.summ_op]
+            
+                input_tensors = [model.metaval_total_loss1, model.metaval_total_losses2[FLAGS.num_updates-1], model.summ_op]
             else:
                 batch_x, batch_y, amp, phase = data_generator.generate(train=False)
                 inputa = batch_x[:, :num_classes*FLAGS.update_batch_size, :]
@@ -250,18 +248,18 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
                 feed_dict = {model.inputa1:ina1,model.inputa2:ina2,model.inputa3:ina3,model.inputb1:inb1,model.inputb2:inb2,model.inputb3:inb3,model.labela:laba,model.labelb:labb,model.meta_lr: 0.0}
                 #feed_dict = {model.inputa: inputa, model.inputb: inputb,  model.labela: labela, model.labelb: labelb, model.meta_lr: 0.0}
                 if model.classification:
-                    input_tensors = [model.total_accuracy1, model.total_accuracies2[FLAGS.num_updates-1]]
+                    input_tensors = [model.total_accuracy1, model.total_accuracies2[FLAGS.num_updates-1],model.auto_losses]
                 else:
-                    input_tensors = [model.total_loss1, model.total_losses2[FLAGS.num_updates-1]]
+                    input_tensors = [model.total_loss1, model.total_losses2[FLAGS.num_updates-1],model.auto_losses]
 
             result = sess.run(input_tensors, feed_dict)
             #print_reuslt = sess.run(model.result,feed_dict)
             #print("print reuslt: " , print_reuslt)
             #We need to nromalize it out. 
 
-            pre_loss = result[0]/100.0*FLAGS.meta_batch_size
+            pre_loss = result[-1]/100.0*FLAGS.meta_batch_size
             print("meta batch size: " , FLAGS.meta_batch_size)
-            post_loss = result[1]/100.0*FLAGS.meta_batch_size
+            post_loss = result[-1]/100.0*FLAGS.meta_batch_size
             print('Validation results: ' + str(pre_loss) + ', ' + str(post_loss))
             
             val_file.write(str(itr - FLAGS.pretrain_iterations) +"," + str(pre_loss) + ', ' + str(post_loss)+"\n")
