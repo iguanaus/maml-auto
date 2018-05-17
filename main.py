@@ -44,10 +44,13 @@ flags.DEFINE_integer('num_classes', 5, 'number of classes used in classification
 flags.DEFINE_string('baseline', None, 'oracle, or None')
 
 ## Training options
+flags.DEFINE_integer('encoder_iterations', 2000, 'number of auto-training iterations.')
+
 flags.DEFINE_integer('pretrain_iterations', 0, 'number of pre-training iterations.')
 flags.DEFINE_integer('metatrain_iterations', 15000, 'number of metatraining iterations.') # 15k for omniglot, 50k for sinusoid
 flags.DEFINE_integer('meta_batch_size', 25, 'number of tasks sampled per meta-update')
 flags.DEFINE_float('meta_lr', 0.001, 'the base learning rate of the generator')
+flags.DEFINE_float('auto_lr', 0.001, 'the base learning rate of the auto encoder (for pretraining)')
 flags.DEFINE_integer('update_batch_size', 5, 'number of examples used for inner gradient update (K for K-shot learning).')
 flags.DEFINE_float('update_lr', 1e-3, 'step size alpha for inner gradient update.') # 0.1 for omniglot
 flags.DEFINE_integer('num_updates', 1, 'number of inner gradient updates during training.')
@@ -104,7 +107,7 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
     train_file = open(train_filename,'w')
     
 
-    for itr in range(resume_itr, FLAGS.pretrain_iterations + FLAGS.metatrain_iterations):
+    for itr in range(resume_itr, FLAGS.pretrain_iterations + FLAGS.metatrain_iterations+ FLAGS.encoder_iterations):
         feed_dict = {}
         if 'generate' in dir(data_generator):
             batch_x, batch_y, amp, phase = data_generator.generate()
@@ -145,8 +148,12 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
             #feed_dict = {model.inputa: inputa, model.inputb: inputb,  model.labela: labela, model.labelb: labelb}
             feed_dict = {model.inputa1:ina1,model.inputa2:ina2,model.inputa3:ina3,model.inputb1:inb1,model.inputb2:inb2,model.inputb3:inb3,model.labela:laba,model.labelb:labb}
 
-        if itr < FLAGS.pretrain_iterations:
+        if itr < FLAGS.encoder_iterations:
+            input_tensors = [model.autotrain_op]
+            print("Pretraining the encoder......")
+        elif (itr-FLAGS.encoder_iterations) < FLAGS.pretrain_iterations:
             input_tensors = [model.pretrain_op]
+
         else:
             input_tensors = [model.metatrain_op]
 
@@ -177,36 +184,24 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
             plt.show()
             print("Val one: " , val_one)
             print("Val two: " , val_two)
-            #print(auto_out_a.shape)
-            #rint(correct_out_a.shape)
-            #print(len(print_result))
-            #print(print_result.shape)
-            #predValuesB = print_result[-2] # Get the last gradient update. 
-            #auto_out_a = print_result[-1]
-            #real_out_a = ina1
-            #print(auto_out_a.shape)
-            #print(real_out_a.shape)
-            #print("input values b: " , inputb)
-            #print("True values b : " , labelb)
-            #print("print reuslt  : " , predValuesB)
-            #print(inputb.shape)
-            #print(labelb.shape)
-            #print(predValuesB.shape)
-            #graphPoints(inputb[0],labelb[0],predValuesB[0])
-
-
         if itr % SUMMARY_INTERVAL == 0:
             print(result)
-            prelosses.append(result[-1])
-            if FLAGS.log:
-                train_writer.add_summary(result[1], itr)
-            postlosses.append(result[-1])
+            if itr < FLAGS.encoder_iterations:
+                prelosses.append(result[-3])
+                postlosses.append(result[-3])
+            else:
+                prelosses.append(result[-5])
+                if FLAGS.log:
+                    train_writer.add_summary(result[1], itr)
+                postlosses.append(result[-4])
 
         if (itr!=0) and itr % PRINT_INTERVAL == 0:
-            if itr < FLAGS.pretrain_iterations:
-                print_str = 'Pretrain Iteration ' + str(itr)
+            if itr < FLAGS.encoder_iterations:
+                print_str = 'Encoder  Iteration ' + str(itr)
+            elif (itr-FLAGS.encoder_iterations) < FLAGS.pretrain_iterations:
+                print_str = 'Pretrain Iteration ' + str(itr-FLAGS.encoder_iterations)
             else:
-                print_str = 'Iteration ' + str(itr - FLAGS.pretrain_iterations)
+                print_str = 'Iteration ' + str(itr - FLAGS.encoder_iterations - FLAGS.pretrain_iterations)
             print_str += ': ' + str(np.mean(prelosses)) + ', ' + str(np.mean(postlosses))
             print(print_str)
             train_file.write(str(itr - FLAGS.pretrain_iterations) +"," + str(np.mean(prelosses)) + ', ' + str(np.mean(postlosses))+"\n")
@@ -227,8 +222,8 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
                 ina1 = inputa[:,:,0,:,:]
                 ina2 = inputa[:,:,1,:,:]
                 ina3 = inputa[:,:,2,:,:]
-                print("Input a: " , inputa.shape)
-                print(inputa[0])
+                #print("Input a: " , inputa.shape)
+                #print(inputa[0])
                 #print("Label a: " , labela.shape)
                 inputb = batch_x[:, num_classes*FLAGS.update_batch_size:, :] # b used for testing
                 inb1 = inputb[:,:,0,:,:]

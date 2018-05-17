@@ -23,6 +23,8 @@ class MAML:
         self.dim_output = dim_output
         self.update_lr = FLAGS.update_lr
         self.meta_lr = tf.placeholder_with_default(FLAGS.meta_lr, ())
+        self.auto_lr = tf.placeholder_with_default(FLAGS.auto_lr, ())
+        
         self.classification = False
         self.test_num_updates = test_num_updates
         self.dim_auto = 2 #This should be able to be arbitrary
@@ -30,7 +32,9 @@ class MAML:
             self.real_input = 39 # This is square root of the total (its a kernel)
             #self.real_output = 40#self.dim_output
             self.real_output = 39*39 # This should be the complete dimension out. 
-            self.dim_input = self.dim_output = self.dim_auto
+            self.dim_input = 3*self.dim_auto #= 3*self.dim_auto 
+            self.dim_output = self.dim_auto
+            #This is from each. 
             #if auto: self.dim_input, self.dim_output = self.dim_auto, self.dim_auto #If auto, pass in/out the dimension of the latent (auto_
         if FLAGS.datasource == 'sinusoid':
             self.dim_hidden = [40, 40,40]
@@ -101,33 +105,60 @@ class MAML:
                 task_outputbs, task_lossesb, auto_losses = [], [], []
                 auto_loss = None
 
-            
+                #One for each. 
 
                 # This takes in the input and passes out the latent variables.
-                temp_in_a = self.encoder(inputa1,self.auto_weights)
+                temp_in_a_1 = self.encoder(inputa1,self.auto_weights)
                 #Then transform it back, and take the loss
-                temp_out_a = self.decoder(temp_in_a,self.auto_weights)
-                auto_out_a = temp_out_a
-                # Similar with b. 
-                temp_in_b = self.encoder(inputb1,self.auto_weights)
-                temp_out_b = self.decoder(temp_in_b,self.auto_weights)
-                auto_out_b = temp_out_b
+                temp_out_a_1 = self.decoder(temp_in_a_1,self.auto_weights)
+                auto_out_a_1 = temp_out_a_1
+
+                temp_in_a_2 = self.encoder(inputa2,self.auto_weights)
+                #Then transform it back, and take the loss
+                temp_out_a_2 = self.decoder(temp_in_a_2,self.auto_weights)
+                auto_out_a_2 = temp_out_a_2
+
+                temp_in_a_3 = self.encoder(inputa3,self.auto_weights)
+                #Then transform it back, and take the loss
+                temp_out_a_3 = self.decoder(temp_in_a_3,self.auto_weights)
+                auto_out_a_3 = temp_out_a_3
+
+               # This takes in the input and passes out the latent variables.
+                temp_in_b_1 = self.encoder(inputb1,self.auto_weights)
+                #Then transform it back, and take the loss
+                temp_out_b_1 = self.decoder(temp_in_b_1,self.auto_weights)
+                auto_out_b_1 = temp_out_b_1
+
+                temp_in_b_2 = self.encoder(inputb2,self.auto_weights)
+                #Then transform it back, and take the loss
+                temp_out_b_2 = self.decoder(temp_in_b_2,self.auto_weights)
+                auto_out_b_2 = temp_out_b_2
+
+                temp_in_b_3 = self.encoder(inputb3,self.auto_weights)
+                #Then transform it back, and take the loss
+                temp_out_b_3 = self.decoder(temp_in_b_3,self.auto_weights)
+                auto_out_b_3 = temp_out_b_3
+
+
                 #print("temp out a: " , temp_out_a)
-                l1 = self.loss_func(temp_out_a,inputa1)
-                l2 = self.loss_func(temp_out_b,inputb1)
-                auto_loss = l1 + l2
+                la_1 = self.loss_func(temp_out_a_1,inputa1)
+                la_2 = self.loss_func(temp_out_a_2,inputa2)
+                la_3 = self.loss_func(temp_out_a_3,inputa3)
 
-                inputa = temp_in_a
-                inputb = temp_in_b
-                
-                #print("temp out a: " , temp_out_a.eval())
+                lb_1 = self.loss_func(temp_out_b_1,inputb1)
+                lb_2 = self.loss_func(temp_out_b_2,inputb2)
+                lb_3 = self.loss_func(temp_out_b_3,inputb3)
 
-                
-                #auto_losses.append(self.loss_func(temp_out_a,inputa))
-                #auto_losses.append(self.loss_func(temp_out_b,inputb))
+                #l2 = self.loss_func(temp_out_b,inputb1)
+                auto_loss = la_1 + la_2 + la_3 + lb_1 + lb_2 + lb_3
 
+                #inputa = temp_in_a
+                #inputb = temp_in_b
+
+                print("Input a1: " , temp_in_a_1)
+                inputa=tf.concat([temp_in_a_1, temp_in_a_2,temp_in_a_3],1)
+                inputb=tf.concat([temp_in_b_1, temp_in_b_2,temp_in_b_3],1)
                 print("Inputa: " , inputa)
-
                 task_outputa = self.forward(inputa, weights, reuse=reuse)  # only reuse on the first iter
 
                 # Convert outputa out
@@ -159,9 +190,6 @@ class MAML:
 
                 for j in range(num_updates - 1):
                     loss = self.loss_func(self.decoder(self.forward(inputa, fast_weights, reuse=True),self.auto_weights), labela)
-                    #else:
-                    #    loss = self.loss_func(self.forward(inputa, fast_weights, reuse=True), labela)
-
                     grads = tf.gradients(loss, list(fast_weights.values()))
                     if FLAGS.stop_grad:
                         grads = [tf.stop_gradient(grad) for grad in grads]
@@ -169,17 +197,14 @@ class MAML:
                     fast_weights = dict(zip(fast_weights.keys(), [fast_weights[key] - self.update_lr*gradients[key] for key in fast_weights.keys()]))
                     
                     output = self.forward(inputb, fast_weights, reuse=True)
-
                     new_out = self.decoder(output,self.auto_weights)
                     output = new_out
 
                     task_outputbs.append(output)
                     task_lossesb.append(self.loss_func(output, labelb))
 
-                if auto:
-                    task_output = [task_outputa, task_outputbs, task_lossa, task_lossesb, auto_loss,auto_out_a,auto_out_b]
-                else:
-                    task_output = [task_outputa, task_outputbs, task_lossa, task_lossesb]
+                task_output = [task_outputa, task_outputbs, task_lossa, task_lossesb, auto_loss,auto_out_a_1,auto_out_a_2]
+                
                 
                 return task_output
 
@@ -231,19 +256,17 @@ class MAML:
             self.outputas, self.outputbs = outputas, outputbs
             self.auto_out_a, self.auto_out_b = auto_out_a, auto_out_b
             
-
             #loss = total_loss1 + self.auto_losses
             #loss = self.auto_losses + total_loss1
-            loss = self.auto_losses
-
+            #loss = self.auto_losses
             #if regularize : loss = loss + regularization_penalty
 
-
             #if auto : loss = loss + auto_losses
-
             # Add in ability for just the encoder to train. 
 
-            self.pretrain_op = tf.train.AdamOptimizer(self.meta_lr).minimize(loss)
+            self.autotrain_op = tf.train.AdamOptimizer(self.auto_lr).minimize(self.auto_losses)
+
+            self.pretrain_op = tf.train.AdamOptimizer(self.meta_lr).minimize(total_loss1)
 
             if FLAGS.metatrain_iterations > 0:
                 print("Meta train....")

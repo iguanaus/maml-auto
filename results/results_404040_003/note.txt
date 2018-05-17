@@ -1,0 +1,6 @@
+ 
+These are the results for the training of the autoencoder. 
+
+python main.py --datasource=sinusoid --logdir=logs/sine1/  --norm=None --update_batch_size=100 --regularize_penal 0.0 --meta_lr .001 --update_lr .001 --metatrain_iterations=0 --pretrain_iterations=70000 --num_updates=10 --meta_batch_size=25 --limit_task=True --resume=False
+
+
