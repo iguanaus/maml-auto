@@ -15,6 +15,9 @@ from utils import mse, xent, conv_block, normalize
 FLAGS = flags.FLAGS
 
 auto = True
+encodeWeight = 0.3
+
+
 
 class MAML:
     def __init__(self, dim_input=1, dim_output=1, test_num_updates=5):
@@ -149,29 +152,18 @@ class MAML:
                 lb_2 = self.loss_func(temp_out_b_2,inputb2)
                 lb_3 = self.loss_func(temp_out_b_3,inputb3)
 
-                #l2 = self.loss_func(temp_out_b,inputb1)
-                #auto_loss = la_1 + la_2 + la_3 + lb_1 + lb_2 + lb_3
                 auto_loss = lb_1+lb_2+lb_3
-
-                #inputa = temp_in_a
-                #inputb = temp_in_b
 
                 print("Input a1: " , temp_in_a_1)
                 inputa=tf.concat([temp_in_a_1, temp_in_a_2,temp_in_a_3],1)
                 inputb=tf.concat([temp_in_b_1, temp_in_b_2,temp_in_b_3],1)
                 print("Inputa: " , inputa)
                 task_outputa = self.forward(inputa, weights, reuse=reuse)  # only reuse on the first iter
-
-                # Convert outputa out
-                #if auto:
                 temp_outputa = self.decoder(task_outputa,self.auto_weights)
-                task_outputa = temp_outputa
-                    #elf.loss_func(task_outputa, labela)
-
-
-                print("Task outputa: " , task_outputa)
+                
+                print("Task outputa: " , temp_outputa)
                 print("Label a: " , labela)
-                task_lossa = self.loss_func(task_outputa, labela)
+                task_lossa = self.loss_func(temp_outputa, labela)
 
                 grads = tf.gradients(task_lossa, list(weights.values()))
                 if FLAGS.stop_grad:
@@ -198,15 +190,12 @@ class MAML:
                     fast_weights = dict(zip(fast_weights.keys(), [fast_weights[key] - self.update_lr*gradients[key] for key in fast_weights.keys()]))
                     
                     output = self.forward(inputb, fast_weights, reuse=True)
-                    new_out = self.decoder(output,self.auto_weights)
-                    output = new_out
-
+                    output = self.decoder(output,self.auto_weights)
+                    
                     task_outputbs.append(output)
                     task_lossesb.append(self.loss_func(output, labelb))
 
                 task_output = [task_outputa, task_outputbs, task_lossa, task_lossesb, auto_loss,auto_out_a_1,auto_out_a_2]
-                
-                
                 return task_output
 
             out_dtype = [tf.float32, [tf.float32]*num_updates, tf.float32, [tf.float32]*num_updates]
@@ -221,60 +210,48 @@ class MAML:
             else:
                 outputas, outputbs, lossesa, lossesb = result  
             self.outputbs = outputbs
-        print("Meta batch: " , FLAGS.meta_batch_size)
+        #print("Meta batch: " , FLAGS.meta_batch_size)
         ## Performance & Optimization
 
-        self.l1_regularizer = tf.contrib.layers.l1_regularizer(
-           scale=FLAGS.regularize_penal, scope=None
+        self.l1_regularizer_e = tf.contrib.layers.l1_regularizer(
+           scale=FLAGS.encoderregularize_penal, scope=None
         )
         self.weights1 = tf.trainable_variables() # all vars of your graph
-        regularization_penalty = tf.contrib.layers.apply_regularization(self.l1_regularizer, self.weights1)
-        regularize = False
+        regularization_penalty_e = tf.contrib.layers.apply_regularization(self.l1_regularizer_e, self.weights1)
 
+
+        self.l1_regularizer_p = tf.contrib.layers.l1_regularizer(
+           scale=FLAGS.predictregularize_penal, scope=None
+        )
+        self.weights1 = tf.trainable_variables() # all vars of your graph
+        regularization_penalty_p = tf.contrib.layers.apply_regularization(self.l1_regularizer_p, self.weights1)
+        
 
         if 'train' in prefix:
-            
             self.auto_losses = tf.reduce_sum(autoloss) / tf.to_float(FLAGS.meta_batch_size)
-
             self.total_loss1 = total_loss1 = tf.reduce_sum(lossesa) / tf.to_float(FLAGS.meta_batch_size)
             self.total_losses2 = total_losses2 = [tf.reduce_sum(lossesb[j]) / tf.to_float(FLAGS.meta_batch_size) for j in range(num_updates)]
             #self.auto_losses = auto_losses
-
             # after the map_fn
             self.outputas, self.outputbs = outputas, outputbs
             self.auto_out_a, self.auto_out_b = auto_out_a, auto_out_b
-            
-            #loss = total_loss1 + self.auto_losses
-            #loss = self.auto_losses + total_loss1
-            #loss = self.auto_losses
-            #if regularize : loss = loss + regularization_penalty
 
-            #if auto : loss = loss + auto_losses
-            # Add in ability for just the encoder to train. 
-
-            self.autotrain_op = tf.train.AdamOptimizer(self.auto_lr).minimize(self.auto_losses)
-
-            self.pretrain_op = tf.train.AdamOptimizer(self.meta_lr).minimize(total_loss1)
-
+            self.autotrain_op = tf.train.AdamOptimizer(self.auto_lr).minimize(self.auto_losses + regularization_penalty_e)
+            self.pretrain_op = tf.train.AdamOptimizer(self.meta_lr).minimize(total_loss1+encodeWeight*self.auto_losses+ regularization_penalty_e) #For pretraining as well. 
             if FLAGS.metatrain_iterations > 0:
-                print("Meta train....")
+                #print("Meta train....")
                 optimizer = tf.train.AdamOptimizer(self.meta_lr)
                 lossPenal = self.total_losses2[FLAGS.num_updates-1]
-                if regularize:
-                    lossPenal = lossPenal + regularization_penalty
-                if auto:
-                    lossPenal = lossPenal + 0.3*auto_losses
+                lossPenal = lossPenal + regularization_penalty_e + encodeWeight*self.auto_losses
                 self.gvs = gvs = optimizer.compute_gradients(lossPenal)
-                if FLAGS.datasource == 'miniimagenet':
-                    gvs = [(tf.clip_by_value(grad, -10, 10), var) for grad, var in gvs]
                 self.metatrain_op = optimizer.apply_gradients(gvs)
         else:
-            print("Meta batch: " , FLAGS.meta_batch_size)
+            print("Validation, Meta batch size: " , FLAGS.meta_batch_size)
             self.metaval_total_loss1 = total_loss1 = tf.reduce_sum(lossesa) / tf.to_float(FLAGS.meta_batch_size)
             self.metaval_total_losses2 = total_losses2 = [tf.reduce_sum(lossesb[j]) / tf.to_float(FLAGS.meta_batch_size) for j in range(num_updates)]
-            if self.classification:
-                self.metaval_total_accuracy1 = total_accuracy1 = tf.reduce_sum(accuraciesa) / tf.to_float(FLAGS.meta_batch_size)
-                self.metaval_total_accuracies2 = total_accuracies2 =[tf.reduce_sum(accuraciesb[j]) / tf.to_float(FLAGS.meta_batch_size) for j in range(num_updates)]
+            #if self.classification:
+            #    self.metaval_total_accuracy1 = total_accuracy1 = tf.reduce_sum(accuraciesa) / tf.to_float(FLAGS.meta_batch_size)
+            #    self.metaval_total_accuracies2 = total_accuracies2 =[tf.reduce_sum(accuraciesb[j]) / tf.to_float(FLAGS.meta_batch_size) for j in range(num_updates)]
 
         ## Summaries
         tf.summary.scalar(prefix+'Pre-update loss', total_loss1)

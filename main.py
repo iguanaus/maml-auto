@@ -49,13 +49,14 @@ flags.DEFINE_integer('encoder_iterations', 2000, 'number of auto-training iterat
 flags.DEFINE_integer('pretrain_iterations', 0, 'number of pre-training iterations.')
 flags.DEFINE_integer('metatrain_iterations', 15000, 'number of metatraining iterations.') # 15k for omniglot, 50k for sinusoid
 flags.DEFINE_integer('meta_batch_size', 25, 'number of tasks sampled per meta-update')
-flags.DEFINE_float('meta_lr', 0.001, 'the base learning rate of the generator')
-flags.DEFINE_float('auto_lr', 0.001, 'the base learning rate of the auto encoder (for pretraining)')
+flags.DEFINE_float('meta_lr', 1e-3, 'the base learning rate of the generator')
+flags.DEFINE_float('auto_lr', 1e-3, 'the base learning rate of the auto encoder (for pretraining)')
 flags.DEFINE_integer('update_batch_size', 5, 'number of examples used for inner gradient update (K for K-shot learning).')
 flags.DEFINE_float('update_lr', 1e-3, 'step size alpha for inner gradient update.') # 0.1 for omniglot
 flags.DEFINE_integer('num_updates', 1, 'number of inner gradient updates during training.')
 
-flags.DEFINE_float('regularize_penal', 1e-8, 'Regularization penalty')
+flags.DEFINE_float('encoderregularize_penal', 1e-7, 'Regularization penalty encoding') # For Encoding training
+flags.DEFINE_float('predictregularize_penal', 1e-8, 'Regularization penalty prediction') # For Normal training
 
 flags.DEFINE_bool('limit_task', True, 'if True, limit the # of tasks shown')
 flags.DEFINE_integer('limit_task_num', 4, 'if True, limit the # of tasks shown')
@@ -78,14 +79,14 @@ flags.DEFINE_bool('test_set', False, 'Set to true to test on the the test set, F
 flags.DEFINE_integer('train_update_batch_size', -1, 'number of examples used for gradient update during training (use if you want to test with a different number).')
 flags.DEFINE_float('train_update_lr', -1, 'value of inner gradient step step during training. (use if you want to test with a different value)') # 0.1 for omniglot
 
-graphProgress = False
+graphProgress = True
 
 np.random.seed(124202)
 random.seed(120293442)
 
 def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
     SUMMARY_INTERVAL = 2
-    SAVE_INTERVAL = 1000
+    SAVE_INTERVAL = 100
     if FLAGS.datasource == 'sinusoid':
         PRINT_INTERVAL = 2
         TEST_PRINT_INTERVAL = PRINT_INTERVAL*5
@@ -96,7 +97,7 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
     if FLAGS.log:
         train_writer = tf.summary.FileWriter(FLAGS.logdir + '/' + exp_string, sess.graph)
     print('Done initializing, starting training.')
-    prelosses, postlosses = [], []
+    prelosses, postlosses, auto_losses_list = [], [], []
 
     num_classes = data_generator.num_classes # for classification, 1 otherwise
     multitask_weights, reg_weights = [], []
@@ -128,8 +129,8 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
 
             labelb = batch_y[:, num_classes*FLAGS.update_batch_size:, :]
             labb = labelb[:,:,0,:,:]
-            print("Ina1 Shape: " , ina1.shape)
-            print("Laa Shape: " , laba.shape)
+            #print("Ina1 Shape: " , ina1.shape)
+            #print("Laa Shape: " , laba.shape)
             #print("Lab Shape: " , labb.shape)
             #os.exit()
             #print("InputB: " , inputa)
@@ -142,7 +143,7 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
 
         if itr < FLAGS.encoder_iterations:
             input_tensors = [model.autotrain_op]
-            print("Pretraining the encoder......")
+            #print("Pretraining the encoder......")
         elif (itr-FLAGS.encoder_iterations) < FLAGS.pretrain_iterations:
             input_tensors = [model.pretrain_op]
 
@@ -155,17 +156,16 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
 
         result = sess.run(input_tensors, feed_dict)
 
-        if graphProgress and (itr % 100) == 0:
-            print_result = sess.run([model.auto_out_a,model.auto_out_b],feed_dict)
+        if graphProgress and (itr % 10) == 0:
+            print_result = sess.run([model.auto_out_a,model.auto_out_b,model.outputbs[FLAGS.num_updates-1]],feed_dict)
 
-            #print(print_result)
-            auto_out_a = print_result[-2].reshape(25,100,39,39)
-            correct_out_a = ina1
-            print("Difference....")
-            #First ele
-            val_one = auto_out_a[0][0]
-            val_two = correct_out_a[0][0]
+            auto_output = print_result[2].reshape(25,100,39,39)
+            correct_out = labb
+            print(auto_output.shape)
+            print(correct_out.shape)
 
+            val_one = auto_output[0][0]
+            val_two = correct_out[0][0]
             fig=plt.figure(figsize=(1, 3))
             fig.add_subplot(1, 3, 1)
             plt.imshow(val_one)
@@ -173,31 +173,56 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
             plt.imshow(val_two)
             fig.add_subplot(1, 3, 3)
             plt.imshow(val_one-val_two)
-            plt.show()
+            myId = random.randint(0,1000)
+            fig.savefig(FLAGS.logdir + '/' + exp_string+"/pred_encode_"+str(myId)+".pdf", bbox_inches='tight')
+            plt.close()
+
+
+            #print(print_result)
+            auto_out_a = print_result[0].reshape(25,100,39,39)
+            correct_out_a = ina1
+            print("Difference....")
+            #First ele
+            val_one = auto_out_a[0][0]
+            val_two = correct_out_a[0][0]
+            fig=plt.figure(figsize=(1, 3))
+            fig.add_subplot(1, 3, 1)
+            plt.imshow(val_one)
+            fig.add_subplot(1, 3, 2)
+            plt.imshow(val_two)
+            fig.add_subplot(1, 3, 3)
+            plt.imshow(val_one-val_two)
+            myId = random.randint(0,1000)
+            fig.savefig(FLAGS.logdir + '/' + exp_string+"/auto_encode_"+str(myId)+".pdf", bbox_inches='tight')
+            plt.close()
+
             print("Val one: " , val_one)
             print("Val two: " , val_two)
         if itr % SUMMARY_INTERVAL == 0:
-            print(result)
+            #print(result)
             if itr < FLAGS.encoder_iterations:
+                auto_losses_list.append(result[-1])
                 prelosses.append(result[-1])
                 postlosses.append(result[-1])
+                #autolosses
             else:
                 prelosses.append(result[-3])
                 if FLAGS.log:
                     train_writer.add_summary(result[1], itr)
                 postlosses.append(result[-2])
+                auto_losses_list.append(result[-1])
 
         if (itr!=0) and itr % PRINT_INTERVAL == 0:
             if itr < FLAGS.encoder_iterations:
-                print_str = 'Encoder  Iteration ' + str(itr)
+                print_str = 'Encoder  Iteration (encoder loss):' + str(itr)
             elif (itr-FLAGS.encoder_iterations) < FLAGS.pretrain_iterations:
-                print_str = 'Pretrain Iteration ' + str(itr-FLAGS.encoder_iterations)
+                print_str = 'Pretrain Iteration (propoga loss):' + str(itr-FLAGS.encoder_iterations)
             else:
-                print_str = 'Iteration ' + str(itr - FLAGS.encoder_iterations - FLAGS.pretrain_iterations)
-            print_str += ': ' + str(np.mean(prelosses)) + ', ' + str(np.mean(postlosses))
+                print_str = 'Iteration          (meta    loss):' + str(itr - FLAGS.encoder_iterations - FLAGS.pretrain_iterations)
+            print_str += ': ' + str(np.mean(prelosses)) + ', ' + str(np.mean(postlosses)) + " : auto : " + str(np.mean(auto_losses_list))
             print(print_str)
             train_file.write(str(itr - FLAGS.pretrain_iterations) +"," + str(np.mean(prelosses)) + ', ' + str(np.mean(postlosses))+"\n")
-            prelosses, postlosses = [], []
+            prelosses, postlosses, auto_losses_list = [], [], []
 
         if (itr!=0) and itr % SAVE_INTERVAL == 0:
             saver.save(sess, FLAGS.logdir + '/' + exp_string + '/model' + str(itr))
@@ -209,12 +234,13 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
             
                 input_tensors = [model.metaval_total_loss1, model.metaval_total_losses2[FLAGS.num_updates-1], model.summ_op]
             else:
+                print("----Testing-----")
                 batch_x, batch_y, amp, phase = data_generator.generate(train=False)
                 inputa = batch_x[:, :num_classes*FLAGS.update_batch_size, :]
                 ina1 = inputa[:,:,0,:,:]
                 ina2 = inputa[:,:,1,:,:]
                 ina3 = inputa[:,:,2,:,:]
-                #print("Input a: " , inputa.shape)
+
                 #print(inputa[0])
                 #print("Label a: " , labela.shape)
                 inputb = batch_x[:, num_classes*FLAGS.update_batch_size:, :] # b used for testing
@@ -228,26 +254,28 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
                 labelb = batch_y[:, num_classes*FLAGS.update_batch_size:, :]
                 labb = labelb[:,:,0,:,:]
 
+                #print("Input a: " , inputa.shape)
+                #print("Label a: " , laba.shape)
+
                 #print("inputa: " , inputa[0])
                 #print("Ina Shape: " , inputa.shape)
                 #print("Inb Shape: " , inputb.shape)
                 #my = input("hi")
                 feed_dict = {model.inputa1:ina1,model.inputa2:ina2,model.inputa3:ina3,model.inputb1:inb1,model.inputb2:inb2,model.inputb3:inb3,model.labela:laba,model.labelb:labb,model.meta_lr: 0.0}
                 #feed_dict = {model.inputa: inputa, model.inputb: inputb,  model.labela: labela, model.labelb: labelb, model.meta_lr: 0.0}
-                if model.classification:
-                    input_tensors = [model.total_accuracy1, model.total_accuracies2[FLAGS.num_updates-1],model.auto_losses]
-                else:
-                    input_tensors = [model.total_loss1, model.total_losses2[FLAGS.num_updates-1],model.auto_losses]
+                
+                input_tensors = [model.total_loss1, model.total_losses2[FLAGS.num_updates-1],model.auto_losses]
 
             result = sess.run(input_tensors, feed_dict)
             #print_reuslt = sess.run(model.result,feed_dict)
             #print("print reuslt: " , print_reuslt)
             #We need to nromalize it out. 
 
-            pre_loss = result[-1]/100.0*FLAGS.meta_batch_size
+            pre_loss = result[0]/100.0*FLAGS.meta_batch_size
             print("meta batch size: " , FLAGS.meta_batch_size)
-            post_loss = result[-1]/100.0*FLAGS.meta_batch_size
+            post_loss = result[1]/100.0*FLAGS.meta_batch_size
             print('Validation results: ' + str(pre_loss) + ', ' + str(post_loss))
+            print('Auto-Encoding loss: ' + str(result[2]/100.0*FLAGS.meta_batch_size))
             
             val_file.write(str(itr - FLAGS.pretrain_iterations) +"," + str(pre_loss) + ', ' + str(post_loss)+"\n")
             train_file.flush()
@@ -270,14 +298,9 @@ def test(model, saver, sess, exp_string, data_generator, test_num_updates=None):
             feed_dict = {}
             feed_dict = {model.meta_lr : 0.0}
         else:
-            batch_x, batch_y, amp, phase = data_generator.generate(train=False,numTestBatches=100)
+            batch_x, batch_y, amp, phase = data_generator.generate(train=False,numTestBatches=1)
             #print("generating...")
             #print(batch_x)
-
-            if FLAGS.baseline == 'oracle': # NOTE - this flag is specific to sinusoid
-                batch_x = np.concatenate([batch_x, np.zeros([batch_x.shape[0], batch_x.shape[1], 2])], 2)
-                batch_x[0, :, 1] = amp[0]
-                batch_x[0, :, 2] = phase[0]
 
             inputa = batch_x[:, :num_classes*FLAGS.update_batch_size, :]
             #print("in a: " , inputa)
@@ -288,10 +311,7 @@ def test(model, saver, sess, exp_string, data_generator, test_num_updates=None):
 
             feed_dict = {model.inputa: inputa, model.inputb: inputb,  model.labela: labela, model.labelb: labelb, model.meta_lr: 0.0}
 
-        if model.classification:
-            result = sess.run([model.metaval_total_accuracy1] + model.metaval_total_accuracies2, feed_dict)
-        else:  # this is for sinusoid
-            result = sess.run([model.total_loss1] +  model.total_losses2, feed_dict)
+        result = sess.run([model.total_loss1] +  model.total_losses2, feed_dict)
         #print(result)
         metaval_accuracies.append(result)
 

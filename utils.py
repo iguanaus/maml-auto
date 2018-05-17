@@ -36,16 +36,14 @@ def conv_block(inp, cweight, bweight, reuse, scope, activation=tf.nn.relu, max_p
         normed = tf.nn.max_pool(normed, stride, stride, max_pool_pad)
     return normed
 
+#Assume no normalization, and just apply the acitvation. Note all activations are the same ()
 def normalize(inp, activation, reuse, scope):
-    if FLAGS.norm == 'batch_norm':
-        return tf_layers.batch_norm(inp, activation_fn=activation, reuse=reuse, scope=scope)
-    elif FLAGS.norm == 'layer_norm':
-        return tf_layers.layer_norm(inp, activation_fn=activation, reuse=reuse, scope=scope)
-    elif FLAGS.norm == 'None':
-        if activation is not None:
-            return activation(inp)
-        else:
-            return inp
+    if activation is not None:
+        #All should be set to relu
+        leakyRelu = tf.add(0.3*inp,activation(inp))
+        return leakyRelu
+    else:
+        return inp
 
 ## Loss functions
 def mse(pred, label):

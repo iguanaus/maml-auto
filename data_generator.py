@@ -121,6 +121,7 @@ class DataGenerator(object):
         """
         self.allTrainData = None
         self.allTestData = None
+        self.iterCount = 0
 
         self.batch_size = batch_size
         self.num_samples_per_class = num_samples_per_class
@@ -205,6 +206,7 @@ class DataGenerator(object):
             #print("All tests: " , self.allTestData)
             print(len(self.allTrainData))
             print(len(self.allTestData))
+
         print("Done with setup....")
 
         #print("sell all tasks: " , self.allTrainData)
@@ -216,16 +218,23 @@ class DataGenerator(object):
         #print("num tasks: " , num_tasks)
         #print("Rand id: " , ranId)
         if train:
-            ranId = random.randint(0,len(self.allTrainData)-1)
-            #ranId = 0
-            print("getting...:",ranId)
-            return self.allTrainData[ranId]
+            idRet = self.iterCount
+            self.iterCount += 1
+            if (self.iterCount > (len(self.allTrainData)-1)):
+                self.iterCount = 0
+            #print("Id return: " , idRet)
+            return self.allTrainData[idRet]
         else:
             if numTestBatches > 1:
                 numTestBatches = len(self.allTestData)
-            ranId = random.randint(0,numTestBatches-1)
-            print("testing..: " , ranId)
-            return self.allTestData[ranId]
+            #idRet = self.iterCount
+            #self.iterCount += 1
+            #if (self.iterCount > (numTestBatches-1)):
+            #    self.iterCount = 0
+            idRet = 0
+            #print("testing..: " , idRet)
+            #print("Dim: " , len(self.allTestData[idRet]))
+            return self.allTestData[idRet]
 
     def make_data_tensor(self, train=True):
         if train:
@@ -292,11 +301,7 @@ class DataGenerator(object):
 
                 true_idxs = class_idxs*self.num_samples_per_class + k
                 new_list.append(tf.gather(image_batch,true_idxs))
-                if FLAGS.datasource == 'omniglot': # and FLAGS.train:
-                    new_list[-1] = tf.stack([tf.reshape(tf.image.rot90(
-                        tf.reshape(new_list[-1][ind], [self.img_size[0],self.img_size[1],1]),
-                        k=tf.cast(rotations[0,class_idxs[ind]], tf.int32)), (self.dim_input,))
-                        for ind in range(self.num_classes)])
+                
                 new_label_list.append(tf.gather(label_batch, true_idxs))
             new_list = tf.concat(new_list, 0)  # has shape [self.num_classes*self.num_samples_per_class, self.dim_input]
             new_label_list = tf.concat(new_label_list, 0)
@@ -307,7 +312,8 @@ class DataGenerator(object):
         all_label_batches = tf.one_hot(all_label_batches, self.num_classes)
         return all_image_batches, all_label_batches
 
-    def generate_sinusoid_batch(self, train=True, input_idx=None,usePreValues=True,numTotal=None,numTestBatches=1):
+    def generate_sinusoid_batch(self, train=True, input_idx=None,usePreValues=True,numTotal=None,numTestBatches=100):
+        #if FLAGS.train==True:
         if numTotal == None:
             numTotal = FLAGS.limit_task_num
 
@@ -317,15 +323,3 @@ class DataGenerator(object):
                 self.setupData(num_tasks=numTotal,numTestBatches=numTestBatches)
             return self.getPreData(num_tasks=numTotal,train=train,numTestBatches=numTestBatches)
 
-        # Note train arg is not used (but it is used for omniglot method.
-        # input_idx is used during qualitative testing --the number of examples used for the grad update
-        amp = np.random.uniform(self.amp_range[0], self.amp_range[1], [self.batch_size])
-        phase = np.random.uniform(self.phase_range[0], self.phase_range[1], [self.batch_size])
-        outputs = np.zeros([self.batch_size, self.num_samples_per_class, self.dim_output])
-        init_inputs = np.zeros([self.batch_size, self.num_samples_per_class, self.dim_input])
-        for func in range(self.batch_size):
-            init_inputs[func] = np.random.uniform(self.input_range[0], self.input_range[1], [self.num_samples_per_class, 1])
-            if input_idx is not None:
-                init_inputs[:,input_idx:,0] = np.linspace(self.input_range[0], self.input_range[1], num=self.num_samples_per_class-input_idx, retstep=False)
-            outputs[func] = amp[func] * np.sin(init_inputs[func]-phase[func])
-        return init_inputs, outputs, amp, phase
