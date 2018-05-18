@@ -283,7 +283,7 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
             post_loss = result[1]/100.0*FLAGS.meta_batch_size
             #auto_loss = result[2]/100.0*FLAGS.meta
             auto_loss = result[2]/100.0*FLAGS.meta_batch_size
-            print("Output: " , result[3])
+            #print("Output: " , result[3])
             print('Validation results: ' + str(pre_loss) + ', ' + str(post_loss))
             print('Auto-Encoding loss: ' + str(auto_loss))
             
