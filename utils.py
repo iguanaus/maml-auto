@@ -46,10 +46,12 @@ def normalize(inp, activation, reuse, scope):
         return inp
 
 ## Loss functions
+## HUBER LOSS EDIT **********
 def mse(pred, label):
     pred = tf.reshape(pred, [-1])
     label = tf.reshape(label, [-1])
-    return tf.reduce_mean(tf.square(pred-label))
+    return tf.losses.huber_loss(label,pred)
+    #return tf.reduce_mean(tf.square(pred-label))
 
 def xent(pred, label):
     # Note - with tf version <=0.12, this loss has incorrect 2nd derivatives
