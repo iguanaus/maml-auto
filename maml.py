@@ -88,6 +88,7 @@ class MAML:
             if 'weights' in dir(self):
                 training_scope.reuse_variables()
                 weights = self.weights
+                auto_weights = self.auto_weights
             else:
                 # Define the weights
                 self.weights = weights = self.construct_weights()
