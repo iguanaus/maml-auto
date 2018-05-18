@@ -313,13 +313,31 @@ def test(model, saver, sess, exp_string, data_generator, test_num_updates=None):
             #print(batch_x)
 
             inputa = batch_x[:, :num_classes*FLAGS.update_batch_size, :]
-            #print("in a: " , inputa)
-            print("Shape: " , inputa.shape)
-            inputb = batch_x[:,num_classes*FLAGS.update_batch_size:, :]
+            ina1 = inputa[:,:,0,:,:]
+            ina2 = inputa[:,:,1,:,:]
+            ina3 = inputa[:,:,2,:,:]
+            #print("Input a: " , inputa.shape)
+            #print(inputa[0])
+            #print("Label a: " , labela.shape)
+            inputb = batch_x[:, num_classes*FLAGS.update_batch_size:, :] # b used for testing
+            inb1 = inputb[:,:,0,:,:]
+            inb2 = inputb[:,:,1,:,:]
+            inb3 = inputb[:,:,2,:,:]
             labela = batch_y[:, :num_classes*FLAGS.update_batch_size, :]
-            labelb = batch_y[:,num_classes*FLAGS.update_batch_size:, :]
+            laba = labela[:,:,0,:,:]
 
-            feed_dict = {model.inputa: inputa, model.inputb: inputb,  model.labela: labela, model.labelb: labelb, model.meta_lr: 0.0}
+            labelb = batch_y[:, num_classes*FLAGS.update_batch_size:, :]
+            labb = labelb[:,:,0,:,:]
+
+            #inputa = batch_x[:, :num_classes*FLAGS.update_batch_size, :]
+            #print("in a: " , inputa)
+            #print("Shape: " , inputa.shape)
+            #inputb = batch_x[:,num_classes*FLAGS.update_batch_size:, :]
+            #labela = batch_y[:, :num_classes*FLAGS.update_batch_size, :]
+            #labelb = batch_y[:,num_classes*FLAGS.update_batch_size:, :]
+            feed_dict = {model.inputa1:ina1,model.inputa2:ina2,model.inputa3:ina3,model.inputb1:inb1,model.inputb2:inb2,model.inputb3:inb3,model.labela:laba,model.labelb:labb, model.meta_lr: 0.0}
+
+            #feed_dict = {model.inputa: inputa, model.inputb: inputb,  model.labela: labela, model.labelb: labelb, model.meta_lr: 0.0}
 
         result = sess.run([model.total_loss1] +  model.total_losses2, feed_dict)
         #print(result)
