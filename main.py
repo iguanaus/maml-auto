@@ -237,7 +237,7 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
             
                 input_tensors = [model.metaval_total_loss1, model.metaval_total_losses2[FLAGS.num_updates-1], model.summ_op]
             else:
-                print("----Testing-----")
+                #print("----Testing-----")
                 batch_x, batch_y, amp, phase = data_generator.generate(train=False)
                 inputa = batch_x[:, :num_classes*FLAGS.update_batch_size, :]
                 ina1 = inputa[:,:,0,:,:]
@@ -256,10 +256,10 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
 
                 labelb = batch_y[:, num_classes*FLAGS.update_batch_size:, :]
                 labb = labelb[:,:,0,:,:]
-                print("InA1 Data: ", ina1.shape)
-                print(ina1)
-                print("Laba: " , laba.shape)
-                print(laba)
+                #print("InA1 Data: ", ina1.shape)
+                #print(ina1)
+                #print("Laba: " , laba.shape)
+                #print(laba)
 
                 #print("Input a: " , inputa.shape)
                 #print("Label a: " , laba.shape)
@@ -340,6 +340,9 @@ def test(model, saver, sess, exp_string, data_generator, test_num_updates=None):
             #feed_dict = {model.inputa: inputa, model.inputb: inputb,  model.labela: labela, model.labelb: labelb, model.meta_lr: 0.0}
 
         result = sess.run([model.total_loss1] +  model.total_losses2, feed_dict)
+
+        print_result = sess.run([model.auto_out_a,model.auto_out_b,model.outputbs[FLAGS.num_updates-1]],feed_dict)
+        print("Output: " , model.outputbs[FLAGS.num_updates-1])
         #print(result)
         metaval_accuracies.append(result)
 
