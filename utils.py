@@ -40,7 +40,7 @@ def conv_block(inp, cweight, bweight, reuse, scope, activation=tf.nn.relu, max_p
 def normalize(inp, activation, reuse, scope):
     if activation is not None:
         #All should be set to relu
-        leakyRelu = tf.add(0.3*inp,activation(inp))
+        leakyRelu = tf.add(0.3*inp,0.7*activation(inp))
         return leakyRelu
     else:
         return inp

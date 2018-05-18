@@ -112,35 +112,35 @@ class MAML:
                 #One for each. 
 
                 # This takes in the input and passes out the latent variables.
-                temp_in_a_1 = self.encoder(inputa1,self.auto_weights)
+                temp_in_a_1 = self.encoder(inputa1,self.auto_weights, reuse=reuse)
                 #Then transform it back, and take the loss
-                temp_out_a_1 = self.decoder(temp_in_a_1,self.auto_weights)
+                temp_out_a_1 = self.decoder(temp_in_a_1,self.auto_weights, reuse=reuse)
                 auto_out_a_1 = temp_out_a_1
 
-                temp_in_a_2 = self.encoder(inputa2,self.auto_weights)
+                temp_in_a_2 = self.encoder(inputa2,self.auto_weights, reuse=reuse)
                 #Then transform it back, and take the loss
-                temp_out_a_2 = self.decoder(temp_in_a_2,self.auto_weights)
+                temp_out_a_2 = self.decoder(temp_in_a_2,self.auto_weights, reuse=reuse)
                 auto_out_a_2 = temp_out_a_2
 
-                temp_in_a_3 = self.encoder(inputa3,self.auto_weights)
+                temp_in_a_3 = self.encoder(inputa3,self.auto_weights, reuse=reuse)
                 #Then transform it back, and take the loss
-                temp_out_a_3 = self.decoder(temp_in_a_3,self.auto_weights)
+                temp_out_a_3 = self.decoder(temp_in_a_3,self.auto_weights, reuse=reuse)
                 auto_out_a_3 = temp_out_a_3
 
                # This takes in the input and passes out the latent variables.
-                temp_in_b_1 = self.encoder(inputb1,self.auto_weights)
+                temp_in_b_1 = self.encoder(inputb1,self.auto_weights, reuse=reuse)
                 #Then transform it back, and take the loss
-                temp_out_b_1 = self.decoder(temp_in_b_1,self.auto_weights)
+                temp_out_b_1 = self.decoder(temp_in_b_1,self.auto_weights, reuse=reuse)
                 auto_out_b_1 = temp_out_b_1
 
-                temp_in_b_2 = self.encoder(inputb2,self.auto_weights)
+                temp_in_b_2 = self.encoder(inputb2,self.auto_weights, reuse=reuse)
                 #Then transform it back, and take the loss
-                temp_out_b_2 = self.decoder(temp_in_b_2,self.auto_weights)
+                temp_out_b_2 = self.decoder(temp_in_b_2,self.auto_weights, reuse=reuse)
                 auto_out_b_2 = temp_out_b_2
 
-                temp_in_b_3 = self.encoder(inputb3,self.auto_weights)
+                temp_in_b_3 = self.encoder(inputb3,self.auto_weights, reuse=reuse)
                 #Then transform it back, and take the loss
-                temp_out_b_3 = self.decoder(temp_in_b_3,self.auto_weights)
+                temp_out_b_3 = self.decoder(temp_in_b_3,self.auto_weights, reuse=reuse)
                 auto_out_b_3 = temp_out_b_3
 
 
@@ -160,7 +160,7 @@ class MAML:
                 inputb=tf.concat([temp_in_b_1, temp_in_b_2,temp_in_b_3],1)
                 print("Inputa: " , inputa)
                 task_outputa = self.forward(inputa, weights, reuse=reuse)  # only reuse on the first iter
-                temp_outputa = self.decoder(task_outputa,self.auto_weights)
+                temp_outputa = self.decoder(task_outputa,self.auto_weights,reuse=reuse)
                 
                 print("Task outputa: " , temp_outputa)
                 print("Label a: " , labela)
@@ -173,7 +173,7 @@ class MAML:
                 fast_weights = dict(zip(weights.keys(), [weights[key] - self.update_lr*gradients[key] for key in weights.keys()]))
                 output = self.forward(inputb, fast_weights, reuse=True)
                 
-                temp_outputb = self.decoder(output,self.auto_weights)
+                temp_outputb = self.decoder(output,self.auto_weights, reuse=True)
                 output = temp_outputb
 
                 task_outputbs.append(output)
@@ -205,11 +205,10 @@ class MAML:
 
             result = tf.map_fn(task_metalearn, elems=(self.inputa1,self.inputa2,self.inputa3,self.inputb1,self.inputb2,self.inputb3, self.labela, self.labelb), dtype=out_dtype, parallel_iterations=FLAGS.meta_batch_size)
             #In case you want to fetch it. 
-            if auto:
+            #if auto:
                 #auto_losses = [1,2,3,4]
-                outputas, outputbs, lossesa, lossesb, autoloss, auto_out_a,auto_out_b  = result
-            else:
-                outputas, outputbs, lossesa, lossesb = result  
+            outputas, outputbs, lossesa, lossesb, autoloss, auto_out_a,auto_out_b  = result
+             
             self.outputbs = outputbs
         #print("Meta batch: " , FLAGS.meta_batch_size)
         ## Performance & Optimization
@@ -283,26 +282,68 @@ class MAML:
         weights['encoder_a'] = tf.Variable(tf.truncated_normal([512,2],stddev=0.01))
         print("Encoder a: " , weights['encoder_a'].shape)
         weights['decoder_a'] = tf.Variable(tf.truncated_normal([2,512],stddev=0.01))
+
+        dtype = tf.float32
+
+        conv_initializer =  tf.contrib.layers.xavier_initializer_conv2d(dtype=dtype)
+
+        channels = 1
+        weights['conv1'] = tf.get_variable('conv1', [3, 3, channels, 32], dtype=dtype)
+        weights['b1'] = tf.Variable(tf.zeros([32]))
+        weights['conv2'] = tf.get_variable('conv2', [3, 3, 32, 32], initializer=conv_initializer, dtype=dtype)
+        
+        weights['b2'] = tf.Variable(tf.zeros([32]))
+        weights['conv3'] = tf.get_variable('conv3', [3, 3, 32,32], initializer=conv_initializer, dtype=dtype)
+        weights['b3'] = tf.Variable(tf.zeros([32]))
+
+
+        weights['conv1_t'] = tf.get_variable('conv1_t', [3, 3, 32, 32], dtype=dtype)
+        weights['b1_t'] = tf.Variable(tf.zeros([32]))
+        weights['conv2_t'] = tf.get_variable('conv2_t', [3, 3, 32, 32], initializer=conv_initializer, dtype=dtype)
+        
+        weights['b2_t'] = tf.Variable(tf.zeros([32]))
+        weights['conv3_t'] = tf.get_variable('conv3_t', [3, 3, 32,32], initializer=conv_initializer, dtype=dtype)
+        weights['b3_t'] = tf.Variable(tf.zeros([32]))
+        
+
+
+
+
+
+
+
+
+        #weights['conv4'] = tf.get_variable('conv4', [k, k, self.dim_hidden, self.dim_hidden], initializer=conv_initializer, dtype=dtype)
+        #weights['b4'] = tf.Variable(tf.zeros([32]))
+        
+
         return weights
 
 
 
     #Take the entire and responds with the small latent. 
-    def encoder(self,inp,weights):
+    def encoder(self,inp,weights,reuse=False,scope=''):
         #print("Weights: " , weights.keys())
         #weights['encoder_a'] = weights['w1']
         #print("Input: " , inp)
         my_inp = tf.reshape(inp,[-1,39,39,1])
         print("My input: " , my_inp)
-        conv1 = tf.layers.conv2d(inputs=my_inp,filters=32,kernel_size=[3,3],padding="valid",activation=tf.nn.relu,strides=[2,2])
-        print("Conv")
-        conv2 = tf.layers.conv2d(inputs=conv1,filters=32,kernel_size=[3,3],padding="valid",activation=tf.nn.relu,strides=[2,2])
-        conv3 = tf.layers.conv2d(inputs=conv2,filters=32,kernel_size=[3,3],padding="valid",activation=tf.nn.relu,strides=[2,2])
+
+        conv1 = normalize(tf.nn.conv2d(my_inp,weights['conv1'],[1,2,2,1],"VALID"),activation=tf.nn.relu,reuse=reuse,scope=scope+"0")+weights['b1']
+        print("Conv", conv1)
+
+        conv2 = normalize(tf.nn.conv2d(conv1,weights['conv2'],[1,2,2,1],"VALID"),activation=tf.nn.relu,reuse=reuse,scope=scope+"1")+weights['b2']
+        print("Conv2: " , conv2)
+
+        conv3 = normalize(tf.nn.conv2d(conv2,weights['conv3'],[1,2,2,1],"VALID"),activation=tf.nn.relu,reuse=reuse,scope=scope+"2")+weights['b3']
+        print("Conv3 : " , conv3)
+        #conv2 = tf.layers.conv2d(inputs=conv1,filters=32,kernel_size=[3,3],padding="valid",activation=tf.nn.relu,strides=[2,2])
+        #conv3 = tf.layers.conv2d(inputs=conv2,filters=32,kernel_size=[3,3],padding="valid",activation=tf.nn.relu,strides=[2,2])
         print("Conv network: " , conv3)
         #os.exit()
         pool2_flat = tf.reshape(conv3, [-1, 512])
         
-        layer_2 = normalize(tf.matmul(pool2_flat,weights['encoder_a']),activation=None,reuse=False,scope='0')
+        layer_2 = tf.matmul(pool2_flat,weights['encoder_a'])
         print(layer_2)
         #os.exit()
 
@@ -310,26 +351,24 @@ class MAML:
         return layer_2
 
     #Takes in the small latent and replies with the entire. 
-    def decoder(self,inp,weights):
+    def decoder(self,inp,weights,reuse=False,scope=''):
 
         print("Input: " , inp)
 
-        layer_2 = normalize(tf.matmul(inp,weights['decoder_a']),activation=None,reuse=False,scope='0')
+        layer_2 = tf.matmul(inp,weights['decoder_a'])
 
         inp = tf.reshape(layer_2,[-1,4,4,32])
 
+        print("Input: " , inp)
+
         conv1 = tf.layers.conv2d_transpose(inputs=inp,filters=32,kernel_size=[3,3],padding="valid",activation=tf.nn.relu,strides=[2,2])
-        print("Conv")
+        print("Conv:", conv1)
         conv2 = tf.layers.conv2d_transpose(inputs=conv1,filters=32,kernel_size=[3,3],padding="valid",activation=tf.nn.relu,strides=[2,2])
+        print("Conv2: " , conv2)
 
         conv3 = tf.layers.conv2d_transpose(inputs=conv2,filters=1,kernel_size=[3,3],padding="valid",activation=tf.nn.relu,strides=[2,2])
 
         print("Output: " , conv3)
-
-        #output = tf.reshape(conv2, [-1, self.dim_auto])
-
-        #layer_2 = normalize(tf.matmul(output,weights['decoder_a']),activation=tf.nn.relu,reuse=False,scope='0')
-
         return conv3
 
     def forward_fc(self, inp, weights, reuse=False):

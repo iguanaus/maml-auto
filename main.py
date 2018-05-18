@@ -256,6 +256,10 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
 
                 labelb = batch_y[:, num_classes*FLAGS.update_batch_size:, :]
                 labb = labelb[:,:,0,:,:]
+                print("InA1 Data: ", ina1.shape)
+                print(ina1)
+                print("Laba: " , laba.shape)
+                print(laba)
 
                 #print("Input a: " , inputa.shape)
                 #print("Label a: " , laba.shape)
@@ -267,7 +271,7 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
                 feed_dict = {model.inputa1:ina1,model.inputa2:ina2,model.inputa3:ina3,model.inputb1:inb1,model.inputb2:inb2,model.inputb3:inb3,model.labela:laba,model.labelb:labb,model.meta_lr: 0.0}
                 #feed_dict = {model.inputa: inputa, model.inputb: inputb,  model.labela: labela, model.labelb: labelb, model.meta_lr: 0.0}
                 
-                input_tensors = [model.total_loss1, model.total_losses2[FLAGS.num_updates-1],model.auto_losses]
+                input_tensors = [model.total_loss1, model.total_losses2[FLAGS.num_updates-1],model.auto_losses,model.outputbs[FLAGS.num_updates-1]]
 
             result = sess.run(input_tensors, feed_dict)
             #print_reuslt = sess.run(model.result,feed_dict)
@@ -279,6 +283,7 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
             post_loss = result[1]/100.0*FLAGS.meta_batch_size
             #auto_loss = result[2]/100.0*FLAGS.meta
             auto_loss = result[2]/100.0*FLAGS.meta_batch_size
+            print("Output: " , result[3])
             print('Validation results: ' + str(pre_loss) + ', ' + str(post_loss))
             print('Auto-Encoding loss: ' + str(auto_loss))
             
@@ -344,7 +349,7 @@ def main():
         if FLAGS.train:
             test_num_updates = 5
         else:
-            test_num_updates = 20
+            test_num_updates = 2
     else:
         if FLAGS.datasource == 'miniimagenet':
             if FLAGS.train == True:
