@@ -351,7 +351,7 @@ class MAML:
 
         ## TODO ADD A WEIGHT IN THIS. 
         print("Layer 2: " , layer_2)
-        my_inp = tf.reshape(layer}_2,[-1,4,4,32]) + weights['dec_t']
+        my_inp = tf.reshape(layer_2,[-1,4,4,32]) + weights['dec_t']
         
         conv1 = normalize(tf.nn.conv2d_transpose(my_inp,weights['conv1_t'],[FLAGS.update_batch_size,9,9,32],[1,2,2,1],padding="VALID"),activation=tf.nn.relu,reuse=reuse,scope=scope+"0") + weights['b1_t']
 
