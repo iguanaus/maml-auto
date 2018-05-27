@@ -79,17 +79,17 @@ flags.DEFINE_bool('test_set', False, 'Set to true to test on the the test set, F
 flags.DEFINE_integer('train_update_batch_size', -1, 'number of examples used for gradient update during training (use if you want to test with a different number).')
 flags.DEFINE_float('train_update_lr', -1, 'value of inner gradient step step during training. (use if you want to test with a different value)') # 0.1 for omniglot
 
-graphProgress = True
+graphProgress = False
 
-np.random.seed(124202)
-random.seed(120293442)
+np.random.seed(1)
+random.seed(1)
 
 def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
-    SUMMARY_INTERVAL = 20
-    SAVE_INTERVAL = 50
-    GRAPH_INTERVAL = 100
+    SUMMARY_INTERVAL = 2
+    SAVE_INTERVAL = 20
+    GRAPH_INTERVAL = 1
     if FLAGS.datasource == 'sinusoid':
-        PRINT_INTERVAL = 4
+        PRINT_INTERVAL = 2
         TEST_PRINT_INTERVAL = PRINT_INTERVAL*5
     else:
         PRINT_INTERVAL = 100
@@ -109,123 +109,281 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
     train_file = open(train_filename,'w')
     
 
-    for itr in range(resume_itr, FLAGS.pretrain_iterations + FLAGS.metatrain_iterations+ FLAGS.encoder_iterations):
+    for itr in range(0,100):
         feed_dict = {}
-        if 'generate' in dir(data_generator):
-            batch_x, batch_y, amp, phase = data_generator.generate()
+        batch_x, batch_y, amp, phase = data_generator.generate()
 
-            inputa = batch_x[:, :num_classes*FLAGS.update_batch_size, :]
-            ina1 = inputa[:,:,0,:,:]
-            ina2 = inputa[:,:,1,:,:]
-            ina3 = inputa[:,:,2,:,:]
-            #print("Input a: " , inputa.shape)
-            #print(inputa[0][0][0])
-            #print("Label a: " , labela.shape)
-            inputb = batch_x[:, num_classes*FLAGS.update_batch_size:, :] # b used for testing
-            inb1 = inputb[:,:,0,:,:]
-            inb2 = inputb[:,:,1,:,:]
-            inb3 = inputb[:,:,2,:,:]
-            labela = batch_y[:, :num_classes*FLAGS.update_batch_size, :]
-            laba = labela[:,:,0,:,:]
-
-            labelb = batch_y[:, num_classes*FLAGS.update_batch_size:, :]
-            labb = labelb[:,:,0,:,:]
-            #print("Ina1 Shape: " , ina1.shape)
-            #print("Laa Shape: " , laba.shape)
-            #print("Lab Shape: " , labb.shape)
-            #os.exit()
-            #print("InputB: " , inputa)
-            #print("LabelB: " , labela)
-            #os.exit()
+        fig=plt.figure(figsize=(1, 5))
+        finalResults = []
 
 
-            #feed_dict = {model.inputa: inputa, model.inputb: inputb,  model.labela: labela, model.labelb: labelb}
-            feed_dict = {model.inputa1:ina1,model.inputa2:ina2,model.inputa3:ina3,model.inputb1:inb1,model.inputb2:inb2,model.inputb3:inb3,model.labela:laba,model.labelb:labb}
+        inputa = batch_x[0:1, :num_classes*FLAGS.update_batch_size, :]
+        inputb = batch_x[0:1, num_classes*FLAGS.update_batch_size:, :]
+        labela = batch_y[0:1, :num_classes*FLAGS.update_batch_size, :]
+        labelb = batch_y[0:1, num_classes*FLAGS.update_batch_size:, :]
 
-        if itr < FLAGS.encoder_iterations:
-            input_tensors = [model.autotrain_op]
-            #print("Pretraining the encoder......")
-        elif (itr-FLAGS.encoder_iterations) < FLAGS.pretrain_iterations:
-            input_tensors = [model.pretrain_op]
-
-        else:
-            input_tensors = [model.metatrain_op]
-
-        if (itr % SUMMARY_INTERVAL == 0 or itr % PRINT_INTERVAL == 0):
-            input_tensors.extend([model.summ_op, model.total_loss1, model.total_losses2[FLAGS.num_updates-1],model.auto_losses])
-            
-
-        result = sess.run(input_tensors, feed_dict)
-
-        if graphProgress and (itr % GRAPH_INTERVAL) == 0:
-            print_result = sess.run([model.auto_out_a,model.auto_out_b,model.outputbs[FLAGS.num_updates-1]],feed_dict)
-
-            auto_output = print_result[2].reshape(FLAGS.meta_batch_size,100,39,39)
-            correct_out = labb
-            print(auto_output.shape)
-            print(correct_out.shape)
-
-            val_one = auto_output[0][0]
-            val_two = correct_out[0][0]
-            plt.switch_backend('agg')
-            fig=plt.figure(figsize=(1, 3))
-            fig.add_subplot(1, 3, 1)
-            plt.imshow(val_one)
-            fig.add_subplot(1, 3, 2)
-            plt.imshow(val_two)
-            fig.add_subplot(1, 3, 3)
-            plt.imshow(val_one-val_two)
-            myId = random.randint(0,1000)
-            fig.savefig(FLAGS.logdir + '/' + exp_string+"/pred_encode_"+str(myId)+".pdf", bbox_inches='tight')
-            plt.close()
+        ina1 = inputa[:,:,0,:,:]
+        ina2 = inputa[:,:,1,:,:]
+        ina3 = inputa[:,:,2,:,:]
+        laba = labela[:,:,0,:,:]
 
 
-            #print(print_result)
-            auto_out_a = print_result[0].reshape(FLAGS.meta_batch_size,100,39,39)
-            correct_out_a = ina1
-            print("Difference....")
-            #First ele
-            val_one = auto_out_a[0][0]
-            val_two = correct_out_a[0][0]
-            plt.switch_backend('agg')
-            fig=plt.figure(figsize=(1, 3))
-            fig.add_subplot(1, 3, 1)
-            plt.imshow(val_one)
-            fig.add_subplot(1, 3, 2)
-            plt.imshow(val_two)
-            fig.add_subplot(1, 3, 3)
-            plt.imshow(val_one-val_two)
-            myId = random.randint(0,1000)
-            fig.savefig(FLAGS.logdir + '/' + exp_string+"/auto_encode_"+str(myId)+".pdf", bbox_inches='tight')
-            plt.close()
+        # ----------- Copy moment ------------- #
 
-            print("Val one: " , val_one)
-            print("Val two: " , val_two)
+
+        inb1 = inputb[:,:,0,:,:]
+        inb2 = inputb[:,:,1,:,:]
+        inb3 = inputb[:,:,2,:,:]
+        labb = labelb[:,:,0,:,:]
+
+        feed_dict = {model.inputa1:ina1,model.inputa2:ina2,model.inputa3:ina3,model.inputb1:inb1,model.inputb2:inb2,model.inputb3:inb3,model.labela:laba,model.labelb:labb}
+        print_result = sess.run(model.outputbs,feed_dict)
+        predValuesB = print_result[-1]
+        print("-----Position------")
+        newB = labelb.reshape(-1,39,39)
+        newO = predValuesB.reshape(-1,39,39)
+        totalDis = []
+        for i in xrange(0,len(newB)):
+            outC = newB[i]
+            preC = newO[i]
+            x0,y0 = get_xx_yy(outC)
+            xP,yP = get_xx_yy(preC)
+            if i == 0:
+                fig.add_subplot(1, 5, 1)
+                plt.imshow(outC)
+                finalResults.append(preC)
+                #fig2.add_subplot(1,5,1)
+                #plt.imshow(preC)
+            #print("Distance:")
+            #print(x0 , "," , y0)
+            #print(xP , "," , yP)
+            dis = ((x0-xP)**2 + (y0-yP)**2)**0.5
+            #print('Dis: ' , dis)
+            totalDis.append(dis)
+        print("Average Distance: " , sum(totalDis)/len(totalDis))
+        vec1 = inputb[:,:,1:3,:,:]
+        #Second half. 
+        vec2 = predValuesB.reshape(1,100,1,39,39)
+        newInB = np.concatenate((vec1,vec2),2)
+        newLaB = amp[0][1::10,:]
+        #print("newLaB: " , newLaB.shape)
+        inputb = newInB
+        labelb = newLaB.reshape(1,100,1,39,39)
+        #print("New inputb: " , inputb.shape)
+
+        # ----------- Copy moment ------------- #
+        # ----------- Copy moment ------------- #
+
+
+        inb1 = inputb[:,:,0,:,:]
+        inb2 = inputb[:,:,1,:,:]
+        inb3 = inputb[:,:,2,:,:]
+        labb = labelb[:,:,0,:,:]
+
+        feed_dict = {model.inputa1:ina1,model.inputa2:ina2,model.inputa3:ina3,model.inputb1:inb1,model.inputb2:inb2,model.inputb3:inb3,model.labela:laba,model.labelb:labb}
+        print_result = sess.run(model.outputbs,feed_dict)
+        predValuesB = print_result[-1]
+        print("-----Position------")
+        newB = labelb.reshape(-1,39,39)
+        newO = predValuesB.reshape(-1,39,39)
+        totalDis = []
+        for i in xrange(0,len(newB)):
+            outC = newB[i]
+            preC = newO[i]
+            x0,y0 = get_xx_yy(outC)
+            xP,yP = get_xx_yy(preC)
+            if i == 0:
+                fig.add_subplot(1, 5, 2)
+                plt.imshow(outC)
+                finalResults.append(preC)
+                #fig2.add_subplot(1,5,1)
+                #plt.imshow(preC)
+            #print("Distance:")
+            #print(x0 , "," , y0)
+            #print(xP , "," , yP)
+            dis = ((x0-xP)**2 + (y0-yP)**2)**0.5
+            #print('Dis: ' , dis)
+            totalDis.append(dis)
+        print("Average Distance: " , sum(totalDis)/len(totalDis))
+        vec1 = inputb[:,:,1:3,:,:]
+        #Second half. 
+        vec2 = predValuesB.reshape(1,100,1,39,39)
+        newInB = np.concatenate((vec1,vec2),2)
+        newLaB = amp[0][2::10,:]
+        #print("newLaB: " , newLaB.shape)
+        inputb = newInB
+        labelb = newLaB.reshape(1,100,1,39,39)
+        #print("New inputb: " , inputb.shape)
+
+        # ----------- Copy moment ------------- #
+        # ----------- Copy moment ------------- #
+
+
+        inb1 = inputb[:,:,0,:,:]
+        inb2 = inputb[:,:,1,:,:]
+        inb3 = inputb[:,:,2,:,:]
+        labb = labelb[:,:,0,:,:]
+
+        feed_dict = {model.inputa1:ina1,model.inputa2:ina2,model.inputa3:ina3,model.inputb1:inb1,model.inputb2:inb2,model.inputb3:inb3,model.labela:laba,model.labelb:labb}
+        print_result = sess.run(model.outputbs,feed_dict)
+        predValuesB = print_result[-1]
+        print("-----Position------")
+        newB = labelb.reshape(-1,39,39)
+        newO = predValuesB.reshape(-1,39,39)
+        totalDis = []
+        for i in xrange(0,len(newB)):
+            outC = newB[i]
+            preC = newO[i]
+            x0,y0 = get_xx_yy(outC)
+            xP,yP = get_xx_yy(preC)
+            if i == 0:
+                fig.add_subplot(1, 5, 3)
+                plt.imshow(outC)
+                finalResults.append(preC)
+                #fig2.add_subplot(1,5,1)
+                #plt.imshow(preC)
+            #print("Distance:")
+            #print(x0 , "," , y0)
+            #print(xP , "," , yP)
+            dis = ((x0-xP)**2 + (y0-yP)**2)**0.5
+            #print('Dis: ' , dis)
+            totalDis.append(dis)
+        print("Average Distance: " , sum(totalDis)/len(totalDis))
+        vec1 = inputb[:,:,1:3,:,:]
+        #Second half. 
+        vec2 = predValuesB.reshape(1,100,1,39,39)
+        newInB = np.concatenate((vec1,vec2),2)
+        newLaB = amp[0][3::10,:]
+        #print("newLaB: " , newLaB.shape)
+        inputb = newInB
+        labelb = newLaB.reshape(1,100,1,39,39)
+        #print("New inputb: " , inputb.shape)
+
+        # ----------- Copy moment ------------- #
+        # ----------- Copy moment ------------- #
+
+
+        inb1 = inputb[:,:,0,:,:]
+        inb2 = inputb[:,:,1,:,:]
+        inb3 = inputb[:,:,2,:,:]
+        labb = labelb[:,:,0,:,:]
+
+        feed_dict = {model.inputa1:ina1,model.inputa2:ina2,model.inputa3:ina3,model.inputb1:inb1,model.inputb2:inb2,model.inputb3:inb3,model.labela:laba,model.labelb:labb}
+        print_result = sess.run(model.outputbs,feed_dict)
+        predValuesB = print_result[-1]
+        print("-----Position------")
+        newB = labelb.reshape(-1,39,39)
+        newO = predValuesB.reshape(-1,39,39)
+        totalDis = []
+        for i in xrange(0,len(newB)):
+            outC = newB[i]
+            preC = newO[i]
+            x0,y0 = get_xx_yy(outC)
+            xP,yP = get_xx_yy(preC)
+            if i == 0:
+                fig.add_subplot(1, 5, 4)
+                plt.imshow(outC)
+                finalResults.append(preC)
+                #fig2.add_subplot(1,5,1)
+                #plt.imshow(preC)
+            #print("Distance:")
+            #print(x0 , "," , y0)
+            #print(xP , "," , yP)
+            dis = ((x0-xP)**2 + (y0-yP)**2)**0.5
+            #print('Dis: ' , dis)
+            totalDis.append(dis)
+        print("Average Distance: " , sum(totalDis)/len(totalDis))
+        vec1 = inputb[:,:,1:3,:,:]
+        #Second half. 
+        vec2 = predValuesB.reshape(1,100,1,39,39)
+        newInB = np.concatenate((vec1,vec2),2)
+        newLaB = amp[0][4::10,:]
+        #print("newLaB: " , newLaB.shape)
+        inputb = newInB
+        labelb = newLaB.reshape(1,100,1,39,39)
+        #print("New inputb: " , inputb.shape)
+
+        # ----------- Copy moment ------------- #
+        # ----------- Copy moment ------------- #
+
+
+        inb1 = inputb[:,:,0,:,:]
+        inb2 = inputb[:,:,1,:,:]
+        inb3 = inputb[:,:,2,:,:]
+        labb = labelb[:,:,0,:,:]
+
+        feed_dict = {model.inputa1:ina1,model.inputa2:ina2,model.inputa3:ina3,model.inputb1:inb1,model.inputb2:inb2,model.inputb3:inb3,model.labela:laba,model.labelb:labb}
+        print_result = sess.run(model.outputbs,feed_dict)
+        predValuesB = print_result[-1]
+        print("-----Position------")
+        newB = labelb.reshape(-1,39,39)
+        newO = predValuesB.reshape(-1,39,39)
+        totalDis = []
+        for i in xrange(0,len(newB)):
+            outC = newB[i]
+            preC = newO[i]
+            x0,y0 = get_xx_yy(outC)
+            xP,yP = get_xx_yy(preC)
+            if i == 0:
+                fig.add_subplot(1, 5, 5)
+                plt.imshow(outC)
+                finalResults.append(preC)
+                #fig2.add_subplot(1,5,1)
+                #plt.imshow(preC)
+            #print("Distance:")
+            #print(x0 , "," , y0)
+            #print(xP , "," , yP)
+            dis = ((x0-xP)**2 + (y0-yP)**2)**0.5
+            #print('Dis: ' , dis)
+            totalDis.append(dis)
+        print("Average Distance: " , sum(totalDis)/len(totalDis))
+        vec1 = inputb[:,:,1:3,:,:]
+        #Second half. 
+        vec2 = predValuesB.reshape(1,100,1,39,39)
+        newInB = np.concatenate((vec1,vec2),2)
+        newLaB = amp[0][5::10,:]
+        #print("newLaB: " , newLaB.shape)
+        inputb = newInB
+        labelb = newLaB.reshape(1,100,1,39,39)
+        #print("New inputb: " , inputb.shape)
+
+        # ----------- Copy moment ------------- #
+        plt.show()
+
+        fig=plt.figure(figsize=(1, 5))
+        for i in xrange(1,len(finalResults)+1):
+            fig.add_subplot(1,5,i)
+            plt.imshow(finalResults[i-1])
+        plt.show()
+        os.exit()
+
+
+
+
+
+
+
+
+
+
+
         if itr % SUMMARY_INTERVAL == 0:
-            #print(result)
-            if itr < FLAGS.encoder_iterations:
-                auto_losses_list.append(result[-1])
-                prelosses.append(result[-1])
-                postlosses.append(result[-1])
-                #autolosses
-            else:
-                prelosses.append(result[-3])
-                if FLAGS.log:
-                    train_writer.add_summary(result[1], itr)
-                postlosses.append(result[-2])
-                auto_losses_list.append(result[-1])
+            prelosses.append(result[-2])
+            if FLAGS.log:
+                train_writer.add_summary(result[1], itr)
+            postlosses.append(result[-1])
 
         if (itr!=0) and itr % PRINT_INTERVAL == 0:
-            if itr < FLAGS.encoder_iterations:
-                print_str = 'Encoder  Iteration (encoder loss):' + str(itr)
-            elif (itr-FLAGS.encoder_iterations) < FLAGS.pretrain_iterations:
-                print_str = 'Pretrain Iteration (propoga loss):' + str(itr-FLAGS.encoder_iterations)
+            if itr < FLAGS.pretrain_iterations:
+                print_str = 'Pretrain Iteration ' + str(itr)
             else:
-                print_str = 'Iteration          (meta    loss):' + str(itr - FLAGS.encoder_iterations - FLAGS.pretrain_iterations)
-            print_str += ': ' + str(np.mean(prelosses)) + ', ' + str(np.mean(postlosses)) + " : auto : " + str(np.mean(auto_losses_list))
+                print_str = 'Iteration ' + str(itr - FLAGS.pretrain_iterations)
+            print_str += ': ' + str(np.mean(prelosses)) + ', ' + str(np.mean(postlosses))
             print(print_str)
-            train_file.write(str(itr - FLAGS.pretrain_iterations) +"," + str(np.mean(prelosses)) + ', ' + str(np.mean(postlosses))+"," + str(np.mean(auto_losses_list)) + "\n")
-            prelosses, postlosses, auto_losses_list = [], [], []
+            train_file.write(str(itr - FLAGS.pretrain_iterations) +"," + str(np.mean(prelosses)) + ', ' + str(np.mean(postlosses))+"\n")
+
+
+            prelosses, postlosses = [], []
 
         if (itr!=0) and itr % SAVE_INTERVAL == 0:
             saver.save(sess, FLAGS.logdir + '/' + exp_string + '/model' + str(itr))
@@ -234,44 +392,25 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
         if (itr!=0) and itr % TEST_PRINT_INTERVAL == 0:
             if 'generate' not in dir(data_generator):
                 feed_dict = {}
-            
-                input_tensors = [model.metaval_total_loss1, model.metaval_total_losses2[FLAGS.num_updates-1], model.summ_op]
+                if model.classification:
+                    input_tensors = [model.metaval_total_accuracy1, model.metaval_total_accuracies2[FLAGS.num_updates-1], model.summ_op]
+                else:
+                    input_tensors = [model.metaval_total_loss1, model.metaval_total_losses2[FLAGS.num_updates-1], model.summ_op]
             else:
-                #print("----Testing-----")
                 batch_x, batch_y, amp, phase = data_generator.generate(train=False)
                 inputa = batch_x[:, :num_classes*FLAGS.update_batch_size, :]
-                ina1 = inputa[:,:,0,:,:]
-                ina2 = inputa[:,:,1,:,:]
-                ina3 = inputa[:,:,2,:,:]
-
-                #print(inputa[0])
-                #print("Label a: " , labela.shape)
-                inputb = batch_x[:, num_classes*FLAGS.update_batch_size:, :] # b used for testing
-                inb1 = inputb[:,:,0,:,:]
-                inb2 = inputb[:,:,1,:,:]
-                inb3 = inputb[:,:,2,:,:]
+                inputb = batch_x[:, num_classes*FLAGS.update_batch_size:, :]
                 labela = batch_y[:, :num_classes*FLAGS.update_batch_size, :]
-                laba = labela[:,:,0,:,:]
-
-
                 labelb = batch_y[:, num_classes*FLAGS.update_batch_size:, :]
-                labb = labelb[:,:,0,:,:]
-                #print("InA1 Data: ", ina1.shape)
-                #print(ina1)
-                #print("Laba: " , laba.shape)
-                #print(laba)
-
-                #print("Input a: " , inputa.shape)
-                #print("Label a: " , laba.shape)
-
                 #print("inputa: " , inputa[0])
                 #print("Ina Shape: " , inputa.shape)
                 #print("Inb Shape: " , inputb.shape)
                 #my = input("hi")
-                feed_dict = {model.inputa1:ina1,model.inputa2:ina2,model.inputa3:ina3,model.inputb1:inb1,model.inputb2:inb2,model.inputb3:inb3,model.labela:laba,model.labelb:labb,model.meta_lr: 0.0}
-                #feed_dict = {model.inputa: inputa, model.inputb: inputb,  model.labela: labela, model.labelb: labelb, model.meta_lr: 0.0}
-                
-                input_tensors = [model.total_loss1, model.total_losses2[FLAGS.num_updates-1],model.auto_losses,model.outputbs[FLAGS.num_updates-1]]
+                feed_dict = {model.inputa: inputa, model.inputb: inputb,  model.labela: labela, model.labelb: labelb, model.meta_lr: 0.0}
+                if model.classification:
+                    input_tensors = [model.total_accuracy1, model.total_accuracies2[FLAGS.num_updates-1]]
+                else:
+                    input_tensors = [model.total_loss1, model.total_losses2[FLAGS.num_updates-1]]
 
             result = sess.run(input_tensors, feed_dict)
             #print_reuslt = sess.run(model.result,feed_dict)
@@ -281,13 +420,9 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
             pre_loss = result[0]/100.0*FLAGS.meta_batch_size
             print("meta batch size: " , FLAGS.meta_batch_size)
             post_loss = result[1]/100.0*FLAGS.meta_batch_size
-            #auto_loss = result[2]/100.0*FLAGS.meta
-            auto_loss = result[2]/100.0*FLAGS.meta_batch_size
-            #print("Output: " , result[3])
             print('Validation results: ' + str(pre_loss) + ', ' + str(post_loss))
-            print('Auto-Encoding loss: ' + str(auto_loss))
             
-            val_file.write(str(itr - FLAGS.pretrain_iterations) +"," + str(pre_loss) + ', ' + str(post_loss)+", " + str(auto_loss) + "\n")
+            val_file.write(str(itr - FLAGS.pretrain_iterations) +"," + str(pre_loss) + ', ' + str(post_loss)+"\n")
             train_file.flush()
             val_file.flush()
 
@@ -503,6 +638,17 @@ def main():
 # This is for bouncing ball, to visualize the errors.
 
 
+def get_xx_yy(A):
+    A = (A >= 0.5)*1.0*0.025
+    w = np.arange(0,A.shape[0])
+    val1 = (w*np.sum(A,0)).sum()
+    val2 = (w*np.sum(A,1)).sum()
+    weight = (np.sum(A,0).sum(0)+0.000000001)
+    x = (val1 + 1e-8)/(weight + 1e-8)
+    y = (val2 + 1e-8)/(weight + 1e-8)
+    return x, y
+
+
 import matplotlib.pylab as plt
 def graphPoints(inval,lab,true):
     print("Graping....")
@@ -533,3 +679,7 @@ def graphPoints(inval,lab,true):
 
 if __name__ == "__main__":
     main()
+
+
+
+

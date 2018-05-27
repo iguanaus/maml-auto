@@ -37,6 +37,7 @@ def convertDataImage_Real(batch_size,myTrain,shouldPlot=False):
         tasks_for_batch = myTrain[i*batch_size:(i+1)*batch_size]
         inputAll = np.array([])
         labelAll = np.array([])
+        myLastEles = []
         for task in tasks_for_batch:
             data = task[0]
             info = task[1]
@@ -48,18 +49,21 @@ def convertDataImage_Real(batch_size,myTrain,shouldPlot=False):
             yCords.append(yCords[0])
             if shouldPlot:
                 plt.plot(xCords,yCords)
-            print("My data: " , data[0][0].shape)
+            #print("My data: " , data[0][0].shape)
             inputa = data[0][0].reshape(-1,3,39,39)
             #inputa = data[0][0].reshape(-1,3,2,1)
             #inputa_fin = np.tile(inputa,(1,1,21,42))
             #inputa = data[0][0].reshape(-1,6) # This is doing exactly what we want
             onlyNextLabela = data[0][1][:,0:1,:].reshape(-1,1,39,39)
-            print("New label a: " , onlyNextLabela.shape)
+            #print("New label a: " , onlyNextLabela.shape)
             #onlyNextLabela_fin = np.tile(onlyNextLabela,(1,1,21,42))
 
             inputb = data[1][0].reshape(-1,3,39,39)
+            finalVals0 = data[1][1][:,:,:].reshape(-1,39,39)
+
             #inputb_fin = np.tile(inputb,(1,1,21,42))
             #inputa = data[0][0].reshape(-1,6) # This is doing exactly what we want
+            myLastEles.append(finalVals0)
             onlyNextLabelb = data[1][1][:,0:1,:].reshape(-1,1,39,39)
             #onlyNextLabelb_fin = np.tile(onlyNextLabelb,(1,1,21,42))
 
@@ -99,7 +103,7 @@ def convertDataImage_Real(batch_size,myTrain,shouldPlot=False):
             if shouldPlot:
                 plt.show()
             #break
-        allTrainData.append([inputAll,labelAll,0,0])
+        allTrainData.append([inputAll,labelAll,myLastEles,0])
 
     #b_x,b_y,amp,phase = allTrainData[1]
     #inputb = b_x[:,:FLAGS.update_batch_size]
@@ -222,11 +226,13 @@ class DataGenerator(object):
             self.iterCount += 1
             if (self.iterCount > (len(self.allTrainData)-1)):
                 self.iterCount = 0
-            #print("Id return: " , idRet)
+            print("Id return: " , idRet)
             return self.allTrainData[idRet]
         else:
             if numTestBatches > 1:
                 numTestBatches = len(self.allTestData)
+            print("Test data val: ")
+            print(len(self.allTestData))
             #idRet = self.iterCount
             #self.iterCount += 1
             #if (self.iterCount > (numTestBatches-1)):
