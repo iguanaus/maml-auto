@@ -85,11 +85,11 @@ np.random.seed(124202)
 random.seed(120293442)
 
 def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
-    SUMMARY_INTERVAL = 20
+    SUMMARY_INTERVAL = 50
     SAVE_INTERVAL = 50
-    GRAPH_INTERVAL = 10
+    GRAPH_INTERVAL = 100
     if FLAGS.datasource == 'sinusoid':
-        PRINT_INTERVAL = 4
+        PRINT_INTERVAL = 10
         TEST_PRINT_INTERVAL = PRINT_INTERVAL*5
     else:
         PRINT_INTERVAL = 100
