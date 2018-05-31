@@ -87,7 +87,7 @@ random.seed(120293442)
 def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
     SUMMARY_INTERVAL = 20
     SAVE_INTERVAL = 50
-    GRAPH_INTERVAL = 100
+    GRAPH_INTERVAL = 10
     if FLAGS.datasource == 'sinusoid':
         PRINT_INTERVAL = 4
         TEST_PRINT_INTERVAL = PRINT_INTERVAL*5
@@ -127,7 +127,6 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
             inb3 = inputb[:,:,2,:,:]
             labela = batch_y[:, :num_classes*FLAGS.update_batch_size, :]
             laba = labela[:,:,0,:,:]
-
             labelb = batch_y[:, num_classes*FLAGS.update_batch_size:, :]
             labb = labelb[:,:,0,:,:]
             #print("Ina1 Shape: " , ina1.shape)
@@ -144,18 +143,30 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
 
         if itr < FLAGS.encoder_iterations:
             input_tensors = [model.autotrain_op]
-            #print("Pretraining the encoder......")
+            print("Pretraining the autoencoder......")
         elif (itr-FLAGS.encoder_iterations) < FLAGS.pretrain_iterations:
             input_tensors = [model.pretrain_op]
+            print("Pretraining the network......")
 
         else:
             input_tensors = [model.metatrain_op]
+            print("Metatraining the network......")
 
         if (itr % SUMMARY_INTERVAL == 0 or itr % PRINT_INTERVAL == 0):
             input_tensors.extend([model.summ_op, model.total_loss1, model.total_losses2[FLAGS.num_updates-1],model.auto_losses])
             
 
         result = sess.run(input_tensors, feed_dict)
+
+        if (itr % SUMMARY_INTERVAL == 0 or itr % PRINT_INTERVAL == 0):
+            auto_losses_list.append(result[-1])
+        
+
+        #auto_losses_list.append(result[-1])
+        #prelosses.append(result[-1])
+        #postlosses.append(result[-1])
+        print("Auto losses list: " , auto_losses_list)
+
 
         if graphProgress and (itr % GRAPH_INTERVAL) == 0:
             print_result = sess.run([model.auto_out_a,model.auto_out_b,model.outputbs[FLAGS.num_updates-1]],feed_dict)
@@ -203,17 +214,19 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
             print("Val two: " , val_two)
         if itr % SUMMARY_INTERVAL == 0:
             #print(result)
-            if itr < FLAGS.encoder_iterations:
-                auto_losses_list.append(result[-1])
-                prelosses.append(result[-1])
-                postlosses.append(result[-1])
-                #autolosses
-            else:
-                prelosses.append(result[-3])
-                if FLAGS.log:
-                    train_writer.add_summary(result[1], itr)
-                postlosses.append(result[-2])
-                auto_losses_list.append(result[-1])
+            #if itr < FLAGS.encoder_iterations:
+            #    print("Auto Losses:", result[-1])
+            #    auto_losses_list.append(result[-1])
+            #    prelosses.append(result[-1])
+            #    postlosses.append(result[-1])
+            #    #autolosses
+            #else:
+            #    prelosses.append(result[-3])
+            #    if FLAGS.log:
+            train_writer.add_summary(result[1], itr)
+            #    postlosses.append(result[-2])
+            #    auto_losses_list.append(result[-1])
+            #print("Auto-Losses: " , result[-1])
 
         if (itr!=0) and itr % PRINT_INTERVAL == 0:
             if itr < FLAGS.encoder_iterations:

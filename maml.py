@@ -153,7 +153,7 @@ class MAML:
                 lb_2 = self.loss_func(temp_out_b_2,inputb2)
                 lb_3 = self.loss_func(temp_out_b_3,inputb3)
 
-                auto_loss = lb_1+lb_2+lb_3
+                auto_loss = la_1+la_2+la_3
 
                 print("Input a1: " , temp_in_a_1)
                 inputa=tf.concat([temp_in_a_1, temp_in_a_2,temp_in_a_3],1)
@@ -236,7 +236,9 @@ class MAML:
             self.outputas, self.outputbs = outputas, outputbs
             self.auto_out_a, self.auto_out_b = auto_out_a, auto_out_b
 
-            self.autotrain_op = tf.train.AdamOptimizer(self.auto_lr).minimize(self.auto_losses + regularization_penalty_e)
+            #self.autotrain_op = tf.train.AdamOptimizer(self.auto_lr).minimize(self.auto_losses + regularization_penalty_e)
+            self.autotrain_op = tf.train.AdamOptimizer(self.auto_lr).minimize(self.auto_losses)
+
             self.pretrain_op = tf.train.AdamOptimizer(self.meta_lr).minimize(total_loss1+encodeWeight*self.auto_losses+ regularization_penalty_e) #For pretraining as well. 
             if FLAGS.metatrain_iterations > 0:
                 #print("Meta train....")
@@ -280,8 +282,11 @@ class MAML:
     def construct_auto_weights(self):
         weights = {}
         weights['encoder_a'] = tf.Variable(tf.truncated_normal([512,2],stddev=0.01))
+        weights['encoder_bias'] = tf.Variable(tf.zeros([2]))
+
         print("Encoder a: " , weights['encoder_a'].shape)
         weights['decoder_a'] = tf.Variable(tf.truncated_normal([2,512],stddev=0.01))
+        weights['decoder_bias'] = tf.Variable(tf.zeros([32]))
         dtype = tf.float32
         conv_initializer =  tf.contrib.layers.xavier_initializer_conv2d(dtype=dtype)
 
@@ -303,7 +308,7 @@ class MAML:
         
         weights['b2_t'] = tf.Variable(tf.zeros([32]))
         weights['conv3_t'] = tf.get_variable('conv3_t', [3, 3, 1,32], initializer=conv_initializer, dtype=dtype)
-        #weights['b3_t'] = tf.Variable(tf.zeros([1]))
+        weights['b3_t'] = tf.Variable(tf.zeros([39,39,1]))
         #weights['conv4'] = tf.get_variable('conv4', [k, k, self.dim_hidden, self.dim_hidden], initializer=conv_initializer, dtype=dtype)
         #weights['b4'] = tf.Variable(tf.zeros([32]))
         return weights
@@ -319,13 +324,14 @@ class MAML:
         my_inp = tf.reshape(inp,[-1,39,39,1])
         print("My input: " , my_inp)
 
-        conv1 = normalize(tf.nn.conv2d(my_inp,weights['conv1'],[1,2,2,1],"VALID"),activation=tf.nn.relu,reuse=reuse,scope=scope+"0")+weights['b1_e']
+
+        conv1 = normalize(tf.nn.conv2d(my_inp,weights['conv1'],[1,2,2,1],"VALID")+weights['b1_e'],activation=tf.nn.relu,reuse=reuse,scope=scope+"0")
         print("Conv", conv1)
 
-        conv2 = normalize(tf.nn.conv2d(conv1,weights['conv2'],[1,2,2,1],"VALID"),activation=tf.nn.relu,reuse=reuse,scope=scope+"1")+weights['b2_e']
+        conv2 = normalize(tf.nn.conv2d(conv1,weights['conv2'],[1,2,2,1],"VALID")+weights['b2_e'],activation=tf.nn.relu,reuse=reuse,scope=scope+"1")
         print("Conv2: " , conv2)
 
-        conv3 = normalize(tf.nn.conv2d(conv2,weights['conv3'],[1,2,2,1],"VALID"),activation=tf.nn.relu,reuse=reuse,scope=scope+"2")+weights['b3_e']
+        conv3 = normalize(tf.nn.conv2d(conv2,weights['conv3'],[1,2,2,1],"VALID")+weights['b3_e'],activation=tf.nn.relu,reuse=reuse,scope=scope+"2")
         print("Conv3 : " , conv3)
         #conv2 = tf.layers.conv2d(inputs=conv1,filters=32,kernel_size=[3,3],padding="valid",activation=tf.nn.relu,strides=[2,2])
         #conv3 = tf.layers.conv2d(inputs=conv2,filters=32,kernel_size=[3,3],padding="valid",activation=tf.nn.relu,strides=[2,2])
@@ -335,7 +341,7 @@ class MAML:
 
         print("Pool flat: " , pool2_flat)
         
-        layer_2 = tf.matmul(pool2_flat,weights['encoder_a'])
+        layer_2 = tf.matmul(pool2_flat,weights['encoder_a']) + weights['encoder_bias']
         print("Lay2: " , layer_2)
         #os.exit()
 
@@ -347,17 +353,26 @@ class MAML:
 
         print("InputT: " , inp)
 
-        layer_2 = tf.matmul(inp,weights['decoder_a'])
+        layer_2 = tf.matmul(inp,weights['decoder_a']) + weights['dec_t']
 
         ## TODO ADD A WEIGHT IN THIS. 
         print("Layer 2: " , layer_2)
-        my_inp = tf.reshape(layer_2,[-1,4,4,32]) + weights['dec_t']
+        my_inp = tf.reshape(layer_2,[-1,4,4,32])
         
-        conv1 = normalize(tf.nn.conv2d_transpose(my_inp,weights['conv1_t'],[FLAGS.update_batch_size,9,9,32],[1,2,2,1],padding="VALID"),activation=tf.nn.relu,reuse=reuse,scope=scope+"0") + weights['b1_t']
+        #conv1 = normalize(tf.nn.conv2d_transpose(my_inp,weights['conv1_t'],[FLAGS.update_batch_size,9,9,32],[1,2,2,1],padding="VALID"),activation=tf.nn.relu,reuse=reuse,scope=scope+"0")
+        
+        conv1 = normalize(tf.nn.conv2d_transpose(my_inp,weights['conv1_t'],[FLAGS.update_batch_size,9,9,32],[1,2,2,1],padding="VALID")+ weights['b1_t'],activation=tf.nn.relu,reuse=reuse,scope=scope+"0")
+        print("Conv 1: ", conv1)
 
-        conv2 = normalize(tf.nn.conv2d_transpose(conv1,weights['conv2_t'],[FLAGS.update_batch_size,19,19,32],[1,2,2,1],padding="VALID"),activation=tf.nn.relu,reuse=reuse,scope=scope+"1") + weights['b2_t']
 
-        conv3 = normalize(tf.nn.conv2d_transpose(conv2,weights['conv3_t'],[FLAGS.update_batch_size,39,39,1],[1,2,2,1],padding="VALID"),activation=tf.nn.relu,reuse=reuse,scope=scope+"1")# + weights['b3_t']
+        #conv2 = normalize(tf.nn.conv2d_transpose(conv1,weights['conv2_t'],[FLAGS.update_batch_size,19,19,32],[1,2,2,1],padding="VALID"),activation=tf.nn.relu,reuse=reuse,scope=scope+"1")
+        conv2 = normalize(tf.nn.conv2d_transpose(conv1,weights['conv2_t'],[FLAGS.update_batch_size,19,19,32],[1,2,2,1],padding="VALID")+ weights['b2_t'],activation=tf.nn.relu,reuse=reuse,scope=scope+"1")
+        print("Conv 2: " , conv2)
+
+        #conv3 = normalize(tf.nn.conv2d_transpose(conv2,weights['conv3_t'],[FLAGS.update_batch_size,39,39,1],[1,2,2,1],padding="VALID"),activation=tf.nn.relu,reuse=reuse,scope=scope+"2")
+        conv3 = normalize(tf.nn.conv2d_transpose(conv2,weights['conv3_t'],[FLAGS.update_batch_size,39,39,1],[1,2,2,1],padding="VALID")+ weights['b3_t'],activation=tf.nn.relu,reuse=reuse,scope=scope+"1")
+        print("Conv 3: " , conv3)
+
 
         return conv3
 
