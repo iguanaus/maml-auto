@@ -115,14 +115,14 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
             ina1 = inputa[:,:,0,:,:]
             ina2 = inputa[:,:,1,:,:]
             ina3 = inputa[:,:,2,:,:]
-            print(ina1.shape)
-            print(ina1[0][0].shape)
+            #print(ina1.shape)
+            #print(ina1[0][0].shape)
             x0,y0 = get_xx_yy(ina1[0][0])
-            print("CoM Test 1: " , x0, y0)
+            #print("CoM Test 1: " , x0, y0)
             x0,y0 = get_xx_yy(ina2[0][0])
-            print("CoM Test 2: " , x0, y0)
+            #print("CoM Test 2: " , x0, y0)
             x0,y0 = get_xx_yy(ina3[0][0])
-            print("CoM Test3: " , x0, y0)
+            #print("CoM Test3: " , x0, y0)
             #print("The first ina is: " , ina1)
             #print("Input a: " , inputa.shape)
             #print(inputa[0][0][0])
@@ -149,7 +149,7 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
 
         if itr < FLAGS.encoder_iterations:
             input_tensors = [model.autotrain_op]
-            print("Pretraining the autoencoder......")
+            print("Auto-regressive training......")
         elif (itr-FLAGS.encoder_iterations) < FLAGS.pretrain_iterations:
             input_tensors = [model.pretrain_op]
             print("Pretraining the network......")
