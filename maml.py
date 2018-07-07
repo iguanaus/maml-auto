@@ -237,7 +237,9 @@ class MAML:
         if 'train' in prefix:
             # auto_losses - mean of all auto-encoding loss of a's
             self.auto_losses = tf.reduce_sum(autoloss) / tf.to_float(FLAGS.meta_batch_size)
+            # This is the loss a (before going into steps)
             self.total_loss1 = total_loss1 = tf.reduce_sum(lossesa) / tf.to_float(FLAGS.meta_batch_size)
+            # This is the loss b (within the steps)
             self.total_losses2 = total_losses2 = [tf.reduce_sum(lossesb[j]) / tf.to_float(FLAGS.meta_batch_size) for j in range(num_updates)]
            
             self.outputas, self.outputbs = outputas, outputbs

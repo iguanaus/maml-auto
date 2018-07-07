@@ -146,20 +146,25 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
 
             #feed_dict = {model.inputa: inputa, model.inputb: inputb,  model.labela: labela, model.labelb: labelb}
             feed_dict = {model.inputa1:ina1,model.inputa2:ina2,model.inputa3:ina3,model.inputb1:inb1,model.inputb2:inb2,model.inputb3:inb3,model.labela:laba,model.labelb:labb}
+        action = ""
 
         if itr < FLAGS.encoder_iterations:
             input_tensors = [model.autotrain_op]
-            print("Auto-regressive training......")
+            action = "Auto-regressive"
+            #print("Auto-regressive training......")
         elif (itr-FLAGS.encoder_iterations) < FLAGS.pretrain_iterations:
             input_tensors = [model.pretrain_op]
-            print("Pretraining the network......")
+            #print("Pretraining the network......")
+            action = "pretrain"
 
         else:
             input_tensors = [model.metatrain_op]
-            print("Metatraining the network......")
+            #print("Metatraining the network......")
+            action = "metatrain"
 
         if (itr % SUMMARY_INTERVAL == 0 or itr % PRINT_INTERVAL == 0):
             input_tensors.extend([model.summ_op, model.total_loss1, model.total_losses2[FLAGS.num_updates-1],model.auto_losses])
+            # lossa, lossb, autoloss
             
 
         result = sess.run(input_tensors, feed_dict)
@@ -167,7 +172,8 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
 
         if (itr % SUMMARY_INTERVAL == 0 or itr % PRINT_INTERVAL == 0):
             auto_losses_list.append(result[-1])
-            print("Loss for auto-regression construction/deconstruction on all a variables: " , result[-1])
+            prelosses.append(result[-3]) #  Loss a
+            postlosses.append(result[-2]) # Loss b
         
         #auto_losses_list.append(result[-1])
         #prelosses.append(result[-1])
@@ -223,31 +229,21 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
             fig.savefig(FLAGS.logdir + '/' + exp_string+"/auto_encode_"+str(myId)+".pdf", bbox_inches='tight')
             plt.close()
         if itr % SUMMARY_INTERVAL == 0:
-            #print(result)
-            #if itr < FLAGS.encoder_iterations:
-            #    print("Auto Losses:", result[-1])
-            #    auto_losses_list.append(result[-1])
-            #    prelosses.append(result[-1])
-            #    postlosses.append(result[-1])
-            #    #autolosses
-            #else:
-            #    prelosses.append(result[-3])
-            #    if FLAGS.log:
             train_writer.add_summary(result[1], itr)
-            #    postlosses.append(result[-2])
-            #    auto_losses_list.append(result[-1])
-            #print("Auto-Losses: " , result[-1])
-
+ 
         if (itr!=0) and itr % PRINT_INTERVAL == 0:
+            print_str = str(itr) + " Action: " + str(action) + " "
+            
             if itr < FLAGS.encoder_iterations:
                 print_str = 'Encoder  Iteration (encoder loss):' + str(itr)
             elif (itr-FLAGS.encoder_iterations) < FLAGS.pretrain_iterations:
                 print_str = 'Pretrain Iteration (propoga loss):' + str(itr-FLAGS.encoder_iterations)
             else:
                 print_str = 'Iteration          (meta    loss):' + str(itr - FLAGS.encoder_iterations - FLAGS.pretrain_iterations)
-            print_str += ': ' + str(np.mean(prelosses)) + ', ' + str(np.mean(postlosses)) + " : auto : " + str(np.mean(auto_losses_list))
+            print_str = str(itr) + " : " + str(action) + " AutoLosses : " + str(np.mean(auto_losses_list)) + " Loss a : " + str(np.mean(prelosses)) + " Loss b: " + str(np.mean(postlosses)) 
             print(print_str)
-            train_file.write(str(itr - FLAGS.pretrain_iterations) +"," + str(np.mean(prelosses)) + ', ' + str(np.mean(postlosses))+"," + str(np.mean(auto_losses_list)) + "\n")
+            # structure is iteration, a, b, auto            
+            train_file.write(str(itr) +"," + str(np.mean(prelosses)) + ', ' + str(np.mean(postlosses))+"," + str(np.mean(auto_losses_list)) + "\n")
             prelosses, postlosses, auto_losses_list = [], [], []
 
         if (itr!=0) and itr % SAVE_INTERVAL == 0:
