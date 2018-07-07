@@ -81,8 +81,8 @@ flags.DEFINE_float('train_update_lr', -1, 'value of inner gradient step step dur
 
 graphProgress = False
 
-np.random.seed(1)
-random.seed(1)
+np.random.seed(3)
+random.seed(3)
 
 def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
     SUMMARY_INTERVAL = 2
@@ -114,6 +114,7 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
         batch_x, batch_y, amp, phase = data_generator.generate()
 
         fig=plt.figure(figsize=(1, 5))
+        fig2=plt.figure(figsize=(1, 5))
         finalResults = []
 
 
@@ -137,6 +138,32 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
         labb = labelb[:,:,0,:,:]
 
         feed_dict = {model.inputa1:ina1,model.inputa2:ina2,model.inputa3:ina3,model.inputb1:inb1,model.inputb2:inb2,model.inputb3:inb3,model.labela:laba,model.labelb:labb}
+        print("-------Printing just matching first ------")
+        print_result = sess.run(model.outputas,feed_dict)
+        predValuesA = print_result[-1]
+        newB = labela.reshape(-1,39,39)
+        newO = predValuesA.reshape(-1,39,39)
+        totalDis = []
+        for i in xrange(0,len(newB)):
+            outC = newB[i]
+            preC = newO[i]
+            x0,y0 = get_xx_yy(outC)
+            xP,yP = get_xx_yy(preC)
+            print("Auto-Reg CoM actual    for example: " + str(i) + " is: " , x0, y0)
+            print("Auto-Reg CoM predicted for example: " + str(i) + " is: " , xP, yP)
+            fig2=plt.figure(figsize=(1, 5))
+
+            fig2.add_subplot(1, 5, 1)
+            plt.imshow(outC)
+            #finalResults.append(preC)
+            fig2.add_subplot(1,5,2)
+            plt.imshow(preC)
+            
+            plt.show()
+
+
+
+
         print_result = sess.run(model.outputbs,feed_dict)
         predValuesB = print_result[-1]
         print("-----Position------")
@@ -148,6 +175,8 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
             preC = newO[i]
             x0,y0 = get_xx_yy(outC)
             xP,yP = get_xx_yy(preC)
+            print("CoM actual    for example: " + str(i) + " is: " , x0, y0)
+            print("CoM predicted for example: " + str(i) + " is: " , xP, yP)
             if i == 0:
                 fig.add_subplot(1, 5, 1)
                 plt.imshow(outC)

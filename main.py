@@ -87,37 +87,43 @@ random.seed(120293442)
 def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
     SUMMARY_INTERVAL = 50
     SAVE_INTERVAL = 50
-    GRAPH_INTERVAL = 100
+    GRAPH_INTERVAL = 99
     if FLAGS.datasource == 'sinusoid':
         PRINT_INTERVAL = 10
         TEST_PRINT_INTERVAL = PRINT_INTERVAL*5
     else:
         PRINT_INTERVAL = 100
         TEST_PRINT_INTERVAL = PRINT_INTERVAL*5
-
     if FLAGS.log:
         train_writer = tf.summary.FileWriter(FLAGS.logdir + '/' + exp_string, sess.graph)
     print('Done initializing, starting training.')
     prelosses, postlosses, auto_losses_list = [], [], []
-
     num_classes = data_generator.num_classes # for classification, 1 otherwise
     multitask_weights, reg_weights = [], []
-
     val_filename = FLAGS.logdir +'/'+ exp_string + '/' + 'validation_loss.csv'
     val_file = open(val_filename,'w')
     train_filename = FLAGS.logdir +'/'+ exp_string + '/' + 'train_loss.csv'
     train_file = open(train_filename,'w')
+    auto_losses_list = []
     
 
     for itr in range(resume_itr, FLAGS.pretrain_iterations + FLAGS.metatrain_iterations+ FLAGS.encoder_iterations):
         feed_dict = {}
         if 'generate' in dir(data_generator):
             batch_x, batch_y, amp, phase = data_generator.generate()
-
             inputa = batch_x[:, :num_classes*FLAGS.update_batch_size, :]
             ina1 = inputa[:,:,0,:,:]
             ina2 = inputa[:,:,1,:,:]
             ina3 = inputa[:,:,2,:,:]
+            print(ina1.shape)
+            print(ina1[0][0].shape)
+            x0,y0 = get_xx_yy(ina1[0][0])
+            print("CoM Test 1: " , x0, y0)
+            x0,y0 = get_xx_yy(ina2[0][0])
+            print("CoM Test 2: " , x0, y0)
+            x0,y0 = get_xx_yy(ina3[0][0])
+            print("CoM Test3: " , x0, y0)
+            #print("The first ina is: " , ina1)
             #print("Input a: " , inputa.shape)
             #print(inputa[0][0][0])
             #print("Label a: " , labela.shape)
@@ -157,27 +163,31 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
             
 
         result = sess.run(input_tensors, feed_dict)
+        
 
         if (itr % SUMMARY_INTERVAL == 0 or itr % PRINT_INTERVAL == 0):
             auto_losses_list.append(result[-1])
+            print("Loss for auto-regression construction/deconstruction on all a variables: " , result[-1])
         
-
         #auto_losses_list.append(result[-1])
         #prelosses.append(result[-1])
         #postlosses.append(result[-1])
-        print("Auto losses list: " , auto_losses_list)
-
+        #print("Auto losses list: " , auto_losses_list)
 
         if graphProgress and (itr % GRAPH_INTERVAL) == 0:
             print_result = sess.run([model.auto_out_a,model.auto_out_b,model.outputbs[FLAGS.num_updates-1]],feed_dict)
 
             auto_output = print_result[2].reshape(FLAGS.meta_batch_size,100,39,39)
             correct_out = labb
-            print(auto_output.shape)
-            print(correct_out.shape)
+            #print(auto_output.shape)
+            #print(correct_out.shape)
 
             val_one = auto_output[0][0]
+            x0,y0 = get_xx_yy(val_one)
+            print("Prediction CoM Auto from NN: " , x0, y0)
             val_two = correct_out[0][0]
+            x0,y0 = get_xx_yy(val_two)
+            print("Prediction CoM Auto true Re: " , x0, y0)
             plt.switch_backend('agg')
             fig=plt.figure(figsize=(1, 3))
             fig.add_subplot(1, 3, 1)
@@ -190,14 +200,17 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
             fig.savefig(FLAGS.logdir + '/' + exp_string+"/pred_encode_"+str(myId)+".pdf", bbox_inches='tight')
             plt.close()
 
-
             #print(print_result)
             auto_out_a = print_result[0].reshape(FLAGS.meta_batch_size,100,39,39)
             correct_out_a = ina1
             print("Difference....")
             #First ele
             val_one = auto_out_a[0][0]
+            x0,y0 = get_xx_yy(val_one)
+            print("Auto-Enc CoM Auto from NN: " , x0, y0)
             val_two = correct_out_a[0][0]
+            x0,y0 = get_xx_yy(val_two)
+            print("Auto-Enc CoM Auto true Re: " , x0, y0)
             plt.switch_backend('agg')
             fig=plt.figure(figsize=(1, 3))
             fig.add_subplot(1, 3, 1)
@@ -209,9 +222,6 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
             myId = random.randint(0,1000)
             fig.savefig(FLAGS.logdir + '/' + exp_string+"/auto_encode_"+str(myId)+".pdf", bbox_inches='tight')
             plt.close()
-
-            print("Val one: " , val_one)
-            print("Val two: " , val_two)
         if itr % SUMMARY_INTERVAL == 0:
             #print(result)
             #if itr < FLAGS.encoder_iterations:
@@ -542,7 +552,15 @@ def graphPoints(inval,lab,true):
     os.exit() 
         
     pass
-
+def get_xx_yy(A):
+    A = (A >= 0.5)*1.0*0.025
+    w = np.arange(0,A.shape[0])
+    val1 = (w*np.sum(A,0)).sum()
+    val2 = (w*np.sum(A,1)).sum()
+    weight = (np.sum(A,0).sum(0)+0.000000001)
+    x = (val1 + 1e-8)/(weight + 1e-8)
+    y = (val2 + 1e-8)/(weight + 1e-8)
+    return x, y
 
 if __name__ == "__main__":
     main()

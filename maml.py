@@ -195,8 +195,15 @@ class MAML:
                     
                     task_outputbs.append(output)
                     task_lossesb.append(self.loss_func(output, labelb))
+                # Task Outputa  Direct output, non-decoded (only first step). This is the location (so it is in hyperparameter space)
+                # Task_outputbs Output from complete system, for each step (first is after 1st step, 2nd is after next, etc.)
+                # task_lossa    Loss of difference in first step (decoded)
+                # task_lossesb   Losses from complete ssystem from each step 
+                # auto_loss      Sum of all auto-encoding loss of a's
+                # auto_out_a_1    Auto-encoded a1 output
+                # auto_out_a_2    Auto-encoded a2 output
 
-                task_output = [task_outputa, task_outputbs, task_lossa, task_lossesb, auto_loss,auto_out_a_1,auto_out_a_2]
+                task_output = [temp_outputa, task_outputbs, task_lossa, task_lossesb, auto_loss,auto_out_a_1,auto_out_a_2]
                 return task_output
 
             out_dtype = [tf.float32, [tf.float32]*num_updates, tf.float32, [tf.float32]*num_updates]
@@ -223,16 +230,16 @@ class MAML:
         self.l1_regularizer_p = tf.contrib.layers.l1_regularizer(
            scale=FLAGS.predictregularize_penal, scope=None
         )
-        self.weights1 = tf.trainable_variables() # all vars of your graph
+        
         regularization_penalty_p = tf.contrib.layers.apply_regularization(self.l1_regularizer_p, self.weights1)
         
 
         if 'train' in prefix:
+            # auto_losses - mean of all auto-encoding loss of a's
             self.auto_losses = tf.reduce_sum(autoloss) / tf.to_float(FLAGS.meta_batch_size)
             self.total_loss1 = total_loss1 = tf.reduce_sum(lossesa) / tf.to_float(FLAGS.meta_batch_size)
             self.total_losses2 = total_losses2 = [tf.reduce_sum(lossesb[j]) / tf.to_float(FLAGS.meta_batch_size) for j in range(num_updates)]
-            #self.auto_losses = auto_losses
-            # after the map_fn
+           
             self.outputas, self.outputbs = outputas, outputbs
             self.auto_out_a, self.auto_out_b = auto_out_a, auto_out_b
 

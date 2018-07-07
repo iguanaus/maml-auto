@@ -31,15 +31,21 @@ tasks = pickle.load(open(filename, "rb"))
 
 def convertDataImage_Real(batch_size,myTrain,shouldPlot=False):
     num_batches = len(myTrain)/batch_size
+    print("Packaging data.......")
     print("Num batches: " , num_batches)
     allTrainData = []
+    # For each batch. 
     for i in xrange(0,num_batches):
+        # Figure out the corresponding tasks. 
         tasks_for_batch = myTrain[i*batch_size:(i+1)*batch_size]
         inputAll = np.array([])
         labelAll = np.array([])
         myLastEles = []
+        # For each individual task. 
+        # There should be 100 examples, of 3 screens, with 39 x 39. 
         for task in tasks_for_batch:
             data = task[0]
+            #print("Data for this task : " , data)
             info = task[1]
             boxCords = info['z'].reshape(-1,2)*.025
             xCords = list(boxCords[:,0])
@@ -51,6 +57,14 @@ def convertDataImage_Real(batch_size,myTrain,shouldPlot=False):
                 plt.plot(xCords,yCords)
             #print("My data: " , data[0][0].shape)
             inputa = data[0][0].reshape(-1,3,39,39)
+            # This should by a set of 
+            print(inputa.shape)
+            x0,y0 = get_xx_yy(inputa[0][0])
+            print("CoM: " , x0, y0)
+
+            #print(inputa[0][0])
+
+
             #inputa = data[0][0].reshape(-1,3,2,1)
             #inputa_fin = np.tile(inputa,(1,1,21,42))
             #inputa = data[0][0].reshape(-1,6) # This is doing exactly what we want
@@ -108,6 +122,7 @@ def convertDataImage_Real(batch_size,myTrain,shouldPlot=False):
     #b_x,b_y,amp,phase = allTrainData[1]
     #inputb = b_x[:,:FLAGS.update_batch_size]
     #labelb = b_y[:,:FLAGS.update_batch_size]
+    print("Done packaging data.....")
 
     return allTrainData
 
@@ -329,3 +344,12 @@ class DataGenerator(object):
                 self.setupData(num_tasks=numTotal,numTestBatches=numTestBatches)
             return self.getPreData(num_tasks=numTotal,train=train,numTestBatches=numTestBatches)
 
+def get_xx_yy(A):
+    A = (A >= 0.5)*1.0*0.025
+    w = np.arange(0,A.shape[0])
+    val1 = (w*np.sum(A,0)).sum()
+    val2 = (w*np.sum(A,1)).sum()
+    weight = (np.sum(A,0).sum(0)+0.000000001)
+    x = (val1 + 1e-8)/(weight + 1e-8)
+    y = (val2 + 1e-8)/(weight + 1e-8)
+    return x, y
