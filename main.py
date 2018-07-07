@@ -190,10 +190,11 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
 
             val_one = auto_output[0][0]
             x0,y0 = get_xx_yy(val_one)
-            print("Prediction CoM Auto from NN: " , x0, y0)
+            print("Graphing data.....")
+            print("   Prediction CoM Auto from NN: " , x0, y0)
             val_two = correct_out[0][0]
             x0,y0 = get_xx_yy(val_two)
-            print("Prediction CoM Auto true Re: " , x0, y0)
+            print("   Prediction CoM Auto true Re: " , x0, y0)
             plt.switch_backend('agg')
             fig=plt.figure(figsize=(1, 3))
             fig.add_subplot(1, 3, 1)
@@ -209,14 +210,13 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
             #print(print_result)
             auto_out_a = print_result[0].reshape(FLAGS.meta_batch_size,100,39,39)
             correct_out_a = ina1
-            print("Difference....")
             #First ele
             val_one = auto_out_a[0][0]
             x0,y0 = get_xx_yy(val_one)
-            print("Auto-Enc CoM Auto from NN: " , x0, y0)
+            print("   Auto-Enc CoM Auto from NN: " , x0, y0)
             val_two = correct_out_a[0][0]
             x0,y0 = get_xx_yy(val_two)
-            print("Auto-Enc CoM Auto true Re: " , x0, y0)
+            print("   Auto-Enc CoM Auto true Re: " , x0, y0)
             plt.switch_backend('agg')
             fig=plt.figure(figsize=(1, 3))
             fig.add_subplot(1, 3, 1)
